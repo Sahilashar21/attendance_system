@@ -1,0 +1,3 @@
+Flask
+openpyxl
+python-dotenv

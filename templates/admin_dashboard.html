@@ -1,0 +1,57 @@
+
+
+{% extends "base.html" %}
+{% block content %}
+
+<h3>Admin Dashboard</h3>
+
+<!-- Add Intern Button -->
+<a href="{{ url_for('add_intern') }}" class="btn btn-success mb-3">
+  + Add New Intern
+</a>
+
+<!-- Date Filter -->
+<form method="POST" class="row g-2 mb-3">
+  <div class="col-auto">
+    <input type="date" class="form-control" name="date" value="{{ date }}">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-primary">Filter</button>
+  </div>
+</form>
+
+{% if records %}
+<table class="table table-bordered table-striped">
+  <thead class="table-dark">
+    <tr>
+      <th>Name</th>
+      <th>Username</th>
+      <th>Work Type</th>
+      <th>Login Time</th>
+      <th>Logout Time</th>
+      <th>Hours Worked</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for r in records %}
+    <tr>
+      <td>{{ r.name }}</td>
+      <td>{{ r.username }}</td>
+      <td>{{ r.work_type }}</td>
+      <td>{{ r.login_time }}</td>
+      <td>{{ r.logout_time or "-" }}</td>
+      <td>{{ r.hours_worked or "-" }}</td>
+      <td>{{ r.status }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+
+</table>
+
+{% else %}
+<p>No attendance records found.</p>
+{% endif %}
+
+{% endblock %}
