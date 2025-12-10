@@ -647,7 +647,7 @@ def logout():
 # INTERN DASHBOARD
 # -----------------------------------------
 
-WORK_TYPES = ["Office", "Work From Home", "Field Work", "Other"]
+WORK_TYPES = ["Office", "Work From Home"]
 
 @app.route("/intern")
 @login_required(role="intern")
