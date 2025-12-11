@@ -1,6 +1,9 @@
-
-
 {% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+{% endblock %}
+
 {% block content %}
 
 <div class="row justify-content-center">

@@ -1,3 +1,139 @@
+/* ---------------------------------------------------
+   GLOBAL
+--------------------------------------------------- */
 body {
-    background-color: #f8f9fa;
+    background: #f1f5f9;
+    font-family: "Inter", sans-serif;
+    color: #1f2937;
+}
+
+/* ---------------------------------------------------
+   NAVBAR
+--------------------------------------------------- */
+.navbar {
+    background: #111827 !important;
+    padding: 14px 20px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+}
+
+.navbar-brand {
+    font-size: 1.4rem !important;
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------
+   BUTTONS
+--------------------------------------------------- */
+.btn {
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background: #2563eb !important;
+    border: none !important;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8 !important;
+}
+
+.btn-success {
+    background: #16a34a !important;
+    border: none !important;
+}
+
+.btn-success:hover {
+    background: #15803d !important;
+}
+
+.btn-danger {
+    background: #dc2626 !important;
+    border: none !important;
+}
+
+.btn-danger:hover {
+    background: #b91c1c !important;
+}
+
+/* ---------------------------------------------------
+   CARDS
+--------------------------------------------------- */
+.card {
+    border: none !important;
+    border-radius: 14px !important;
+    padding: 20px;
+    background: white;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08) !important;
+}
+
+.card h4, .card h5 {
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------
+   FORMS
+--------------------------------------------------- */
+input.form-control, select.form-select {
+    border-radius: 8px !important;
+    padding: 10px !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+input.form-control:focus, select.form-select:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25) !important;
+}
+
+/* ---------------------------------------------------
+   TABLES
+--------------------------------------------------- */
+table {
+    border-radius: 14px !important;
+    overflow: hidden;
+}
+
+thead {
+    background: #1f2937;
+    color: white;
+    font-weight: 600;
+}
+
+tbody tr:hover {
+    background: #e2e8f0 !important;
+}
+
+td, th {
+    padding: 14px !important;
+    vertical-align: middle !important;
+    font-size: 0.95rem;
+}
+
+/* ---------------------------------------------------
+   LOGIN PAGE
+--------------------------------------------------- */
+.login-wrapper {
+    max-width: 420px;
+    margin: 80px auto;
+}
+
+.login-card {
+    padding: 30px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+.login-card h3 {
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+/* ---------------------------------------------------
+   FLASH MESSAGES
+--------------------------------------------------- */
+.alert {
+    border-radius: 10px !important;
+    font-size: 0.95rem;
 }
