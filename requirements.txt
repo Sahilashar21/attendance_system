@@ -4,3 +4,5 @@ dnspython==2.8.0
 python-dotenv==1.2.1
 gunicorn==22.0.0
 pytz
+pandas
+openpyxl
