@@ -525,6 +525,255 @@
 
 
 
+# from flask import (
+#     Flask, render_template, request,
+#     redirect, url_for, session, flash
+# )
+# from datetime import datetime
+# from bson.objectid import ObjectId
+# from pymongo import MongoClient
+# import os
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
+# app = Flask(__name__)
+# app.secret_key = "super-secret-key"
+
+# # -----------------------------------------
+# # MONGO CONNECTION (LOCAL + ATLAS READY)
+# # -----------------------------------------
+
+# USE_ATLAS = os.getenv("USE_ATLAS", "false").lower() == "true"
+
+# if USE_ATLAS:
+#     atlas_user = os.getenv("MONGO_ATLAS_USER")
+#     atlas_pass = os.getenv("MONGO_ATLAS_PASS")
+#     atlas_cluster = os.getenv("MONGO_ATLAS_CLUSTER")
+#     MONGO_URI = f"mongodb+srv://{atlas_user}:{atlas_pass}@{atlas_cluster}/?retryWrites=true&w=majority"
+# else:
+#     MONGO_URI = "mongodb://localhost:27017/"
+
+# client = MongoClient(MONGO_URI)
+# db = client["attendance_system"]
+
+# users_col = db["users"]
+# attendance_col = db["attendance"]
+
+# # -----------------------------------------
+# # AUTO-CREATE ADMIN USER IF MISSING
+# # -----------------------------------------
+# if users_col.count_documents({}) == 0:
+#     users_col.insert_one({
+#         "username": "admin",
+#         "password": "admin123",
+#         "full_name": "Admin",
+#         "role": "admin"
+#     })
+
+# # -----------------------------------------
+# # AUTH DECORATOR
+# # -----------------------------------------
+# def login_required(role=None):
+#     def decorator(fn):
+#         from functools import wraps
+
+#         @wraps(fn)
+#         def wrapper(*args, **kwargs):
+#             if "user_id" not in session:
+#                 return redirect(url_for("login"))
+
+#             user = users_col.find_one({"_id": ObjectId(session["user_id"])})
+
+#             # Prevent NoneType errors
+#             if not user:
+#                 session.clear()
+#                 return redirect(url_for("login"))
+
+#             if role and user["role"] != role:
+#                 return redirect(url_for("login"))
+
+#             return fn(*args, **kwargs)
+#         return wrapper
+#     return decorator
+
+# # -----------------------------------------
+# # UTILS
+# # -----------------------------------------
+# def get_today_record(user_id):
+#     today = datetime.now().strftime("%Y-%m-%d")
+#     return attendance_col.find_one({"user_id": user_id, "date": today})
+
+# # -----------------------------------------
+# # ROUTES
+# # -----------------------------------------
+
+# @app.route("/")
+# def home():
+#     if "user_id" not in session:
+#         return redirect(url_for("login"))
+
+#     user = users_col.find_one({"_id": ObjectId(session["user_id"])})
+
+#     return redirect(url_for("admin_dashboard" if user["role"] == "admin" else "intern_dashboard"))
+
+# # -----------------------------------------
+# # LOGIN
+# # -----------------------------------------
+
+# @app.route("/login", methods=["GET", "POST"])
+# def login():
+#     if request.method == "POST":
+#         username = request.form["username"].strip()
+#         password = request.form["password"].strip()
+
+#         user = users_col.find_one({"username": username, "password": password})
+
+#         if user:
+#             session["user_id"] = str(user["_id"])
+#             flash("Login successful!", "success")
+#             return redirect("/")
+
+#         flash("Invalid username or password", "danger")
+
+#     return render_template("login.html")
+
+# @app.route("/logout")
+# def logout():
+#     session.clear()
+#     return redirect(url_for("login"))
+
+# # -----------------------------------------
+# # INTERN DASHBOARD
+# # -----------------------------------------
+
+# WORK_TYPES = ["Office", "Work From Home"]
+
+# @app.route("/intern")
+# @login_required(role="intern")
+# def intern_dashboard():
+#     user = users_col.find_one({"_id": ObjectId(session["user_id"])})
+#     record = get_today_record(user["_id"])
+
+#     return render_template("intern_dashboard.html",
+#                            user=user,
+#                            record=record,
+#                            work_types=WORK_TYPES)
+
+# # Intern Login
+# @app.route("/intern/mark-login", methods=["POST"])
+# @login_required(role="intern")
+# def mark_login():
+#     user_id = ObjectId(session["user_id"])
+#     work_type = request.form["work_type"]
+#     today = datetime.now().strftime("%Y-%m-%d")
+
+#     if get_today_record(user_id):
+#         flash("Login already marked today!", "warning")
+#         return redirect(url_for("intern_dashboard"))
+
+#     attendance_col.insert_one({
+#         "user_id": user_id,
+#         "date": today,
+#         "work_type": work_type,
+#         "login_time": datetime.now().strftime("%H:%M:%S"),
+#         "logout_time": None,
+#         "status": "Present",
+#         "hours_worked": None
+#     })
+
+#     flash("Login marked!", "success")
+#     return redirect(url_for("intern_dashboard"))
+
+# # Intern Logout
+# @app.route("/intern/mark-logout", methods=["POST"])
+# @login_required(role="intern")
+# def mark_logout():
+#     user_id = ObjectId(session["user_id"])
+#     today = datetime.now().strftime("%Y-%m-%d")
+
+#     record = attendance_col.find_one({"user_id": user_id, "date": today})
+
+#     if not record:
+#         flash("Please mark login first!", "danger")
+#         return redirect(url_for("intern_dashboard"))
+
+#     login_str = record["login_time"]
+#     logout_str = datetime.now().strftime("%H:%M:%S")
+
+#     login_dt = datetime.strptime(login_str, "%H:%M:%S")
+#     logout_dt = datetime.strptime(logout_str, "%H:%M:%S")
+
+#     diff = logout_dt - login_dt
+#     hours = diff.seconds // 3600
+#     minutes = (diff.seconds % 3600) // 60
+
+#     attendance_col.update_one(
+#         {"_id": record["_id"]},
+#         {"$set": {"logout_time": logout_str, "hours_worked": f"{hours}h {minutes}m"}}
+#     )
+
+#     flash("Logout marked!", "success")
+#     return redirect(url_for("intern_dashboard"))
+
+# # -----------------------------------------
+# # ADMIN DASHBOARD
+# # -----------------------------------------
+
+# @app.route("/admin", methods=["GET", "POST"])
+# @login_required(role="admin")
+# def admin_dashboard():
+#     date = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
+#     records = list(attendance_col.find({"date": date}))
+
+#     for r in records:
+#         u = users_col.find_one({"_id": r["user_id"]})
+#         r["name"] = u["full_name"]
+#         r["username"] = u["username"]
+
+#     return render_template("admin_dashboard.html", records=records, date=date)
+
+# # -----------------------------------------
+# # ADD INTERN
+# # -----------------------------------------
+
+# @app.route("/admin/add-intern", methods=["GET", "POST"])
+# @login_required(role="admin")
+# def add_intern():
+#     if request.method == "POST":
+#         full_name = request.form["full_name"].strip()
+#         username = request.form["username"].strip()
+#         password = request.form["password"].strip()
+
+#         if users_col.find_one({"username": username}):
+#             flash("Username already exists!", "danger")
+#             return redirect(url_for("add_intern"))
+
+#         users_col.insert_one({
+#             "full_name": full_name,
+#             "username": username,
+#             "password": password,
+#             "role": "intern"
+#         })
+
+#         flash("Intern added successfully!", "success")
+#         return redirect(url_for("admin_dashboard"))
+
+#     return render_template("add_intern.html")
+
+# # -----------------------------------------
+# # START APP
+# # -----------------------------------------
+
+# if __name__ == "__main__":
+#     app.run(host="0.0.0.0", port=5000)
+
+
+
+
+
+
+
 from flask import (
     Flask, render_template, request,
     redirect, url_for, session, flash
@@ -534,6 +783,7 @@ from bson.objectid import ObjectId
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
+import pytz   # <-- IST timezone support
 
 load_dotenv()
 
@@ -541,9 +791,18 @@ app = Flask(__name__)
 app.secret_key = "super-secret-key"
 
 # -----------------------------------------
+# TIMEZONE (IST)
+# -----------------------------------------
+IST = pytz.timezone("Asia/Kolkata")
+
+def now_ist():
+    """Return datetime in IST timezone"""
+    return datetime.now(IST)
+
+
+# -----------------------------------------
 # MONGO CONNECTION (LOCAL + ATLAS READY)
 # -----------------------------------------
-
 USE_ATLAS = os.getenv("USE_ATLAS", "false").lower() == "true"
 
 if USE_ATLAS:
@@ -560,8 +819,9 @@ db = client["attendance_system"]
 users_col = db["users"]
 attendance_col = db["attendance"]
 
+
 # -----------------------------------------
-# AUTO-CREATE ADMIN USER IF MISSING
+# AUTO-CREATE ADMIN USER
 # -----------------------------------------
 if users_col.count_documents({}) == 0:
     users_col.insert_one({
@@ -570,6 +830,7 @@ if users_col.count_documents({}) == 0:
         "full_name": "Admin",
         "role": "admin"
     })
+
 
 # -----------------------------------------
 # AUTH DECORATOR
@@ -585,7 +846,6 @@ def login_required(role=None):
 
             user = users_col.find_one({"_id": ObjectId(session["user_id"])})
 
-            # Prevent NoneType errors
             if not user:
                 session.clear()
                 return redirect(url_for("login"))
@@ -594,33 +854,34 @@ def login_required(role=None):
                 return redirect(url_for("login"))
 
             return fn(*args, **kwargs)
+
         return wrapper
     return decorator
+
 
 # -----------------------------------------
 # UTILS
 # -----------------------------------------
 def get_today_record(user_id):
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = now_ist().strftime("%Y-%m-%d")
     return attendance_col.find_one({"user_id": user_id, "date": today})
+
 
 # -----------------------------------------
 # ROUTES
 # -----------------------------------------
-
 @app.route("/")
 def home():
     if "user_id" not in session:
         return redirect(url_for("login"))
 
     user = users_col.find_one({"_id": ObjectId(session["user_id"])})
-
     return redirect(url_for("admin_dashboard" if user["role"] == "admin" else "intern_dashboard"))
+
 
 # -----------------------------------------
 # LOGIN
 # -----------------------------------------
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -638,15 +899,16 @@ def login():
 
     return render_template("login.html")
 
+
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
+
 # -----------------------------------------
 # INTERN DASHBOARD
 # -----------------------------------------
-
 WORK_TYPES = ["Office", "Work From Home"]
 
 @app.route("/intern")
@@ -660,13 +922,16 @@ def intern_dashboard():
                            record=record,
                            work_types=WORK_TYPES)
 
-# Intern Login
+
+# -----------------------------------------
+# MARK LOGIN
+# -----------------------------------------
 @app.route("/intern/mark-login", methods=["POST"])
 @login_required(role="intern")
 def mark_login():
     user_id = ObjectId(session["user_id"])
     work_type = request.form["work_type"]
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = now_ist().strftime("%Y-%m-%d")
 
     if get_today_record(user_id):
         flash("Login already marked today!", "warning")
@@ -676,7 +941,7 @@ def mark_login():
         "user_id": user_id,
         "date": today,
         "work_type": work_type,
-        "login_time": datetime.now().strftime("%H:%M:%S"),
+        "login_time": now_ist().strftime("%H:%M:%S"),
         "logout_time": None,
         "status": "Present",
         "hours_worked": None
@@ -685,12 +950,15 @@ def mark_login():
     flash("Login marked!", "success")
     return redirect(url_for("intern_dashboard"))
 
-# Intern Logout
+
+# -----------------------------------------
+# MARK LOGOUT
+# -----------------------------------------
 @app.route("/intern/mark-logout", methods=["POST"])
 @login_required(role="intern")
 def mark_logout():
     user_id = ObjectId(session["user_id"])
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = now_ist().strftime("%Y-%m-%d")
 
     record = attendance_col.find_one({"user_id": user_id, "date": today})
 
@@ -699,7 +967,7 @@ def mark_logout():
         return redirect(url_for("intern_dashboard"))
 
     login_str = record["login_time"]
-    logout_str = datetime.now().strftime("%H:%M:%S")
+    logout_str = now_ist().strftime("%H:%M:%S")
 
     login_dt = datetime.strptime(login_str, "%H:%M:%S")
     logout_dt = datetime.strptime(logout_str, "%H:%M:%S")
@@ -716,14 +984,14 @@ def mark_logout():
     flash("Logout marked!", "success")
     return redirect(url_for("intern_dashboard"))
 
+
 # -----------------------------------------
 # ADMIN DASHBOARD
 # -----------------------------------------
-
 @app.route("/admin", methods=["GET", "POST"])
 @login_required(role="admin")
 def admin_dashboard():
-    date = request.form.get("date") or datetime.now().strftime("%Y-%m-%d")
+    date = request.form.get("date") or now_ist().strftime("%Y-%m-%d")
     records = list(attendance_col.find({"date": date}))
 
     for r in records:
@@ -733,10 +1001,10 @@ def admin_dashboard():
 
     return render_template("admin_dashboard.html", records=records, date=date)
 
+
 # -----------------------------------------
 # ADD INTERN
 # -----------------------------------------
-
 @app.route("/admin/add-intern", methods=["GET", "POST"])
 @login_required(role="admin")
 def add_intern():
@@ -761,9 +1029,9 @@ def add_intern():
 
     return render_template("add_intern.html")
 
+
 # -----------------------------------------
 # START APP
 # -----------------------------------------
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
