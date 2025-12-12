@@ -1,64 +1,102 @@
 from pymongo import MongoClient
-from bson.objectid import ObjectId
-from datetime import datetime, timedelta
-import random
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # -----------------------------
-# CONFIG: CHANGE IF NEEDED
+# Mongo Connection (Local/Atlas)
 # -----------------------------
-MONGO_URI = "mongodb://localhost:27017/"
-DB_NAME = "attendance_system"
+USE_ATLAS = os.getenv("USE_ATLAS", "false").lower() == "true"
 
-WORK_TYPES = ["Office", "Work From Home", "Field Work", "Other"]
+if USE_ATLAS:
+    atlas_user = os.getenv("MONGO_ATLAS_USER")
+    atlas_pass = os.getenv("MONGO_ATLAS_PASS")
+    atlas_cluster = os.getenv("MONGO_ATLAS_CLUSTER")
+    MONGO_URI = f"mongodb+srv://{atlas_user}:{atlas_pass}@{atlas_cluster}/?retryWrites=true&w=majority"
+else:
+    MONGO_URI = "mongodb://localhost:27017/"
 
 client = MongoClient(MONGO_URI)
-db = client[DB_NAME]
-
+db = client["attendance_system"]
 users_col = db["users"]
-attendance_col = db["attendance"]
 
-print("🌱 Starting seed script...")
-
-# -----------------------------
-# Fetch interns only
-# -----------------------------
-interns = list(users_col.find({"role": "intern"}))
-
-if not interns:
-    print("❌ No interns found. Please run app.py once so default users get inserted.")
+# --------------------------------------
+# Confirm before deleting existing users
+# --------------------------------------
+confirm = input("This will DELETE all users and re-insert 22 entries. Continue? (yes/no): ")
+if confirm.lower() != "yes":
+    print("Cancelled.")
     exit()
 
+users_col.delete_many({})
+print("\nOld users deleted.\n")
 
-# -----------------------------
-# Generate 10 days of data
-# -----------------------------
-today = datetime.now()
-days_to_insert = 10
+# --------------------------------------
+# Admins (3 total)
+# --------------------------------------
+admins = [
+    {
+        "full_name": "Javeriya Mulla",
+        "username": "juhi22",
+        "password": "Juhim22@",
+        "role": "admin"
+    },
+    {
+        "full_name": "Shana Shaikh",
+        "username": "Shana05",
+        "password": "sha0608",
+        "role": "admin"
+    },
+    {
+        "full_name": "Security Head",
+        "username": "sanubi_myself",
+        "password": "bhindi",
+        "role": "admin"
+    }
+]
 
-for i in range(days_to_insert):
-    date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+# --------------------------------------
+# Interns (19 total)
+# --------------------------------------
+interns = [
+    {"full_name": "Tarun Asthana", "username": "tarun", "password": "tarun@2005", "role": "intern"},
+    {"full_name": "Aryan Rajendraprasad Maurya", "username": "AryanMaurya19", "password": "aryan4563", "role": "intern"},
+    {"full_name": "Tapeshkumar Thakur", "username": "tapeshthakur", "password": "Tapesh@1973", "role": "intern"},
+    {"full_name": "Abhinav Singh", "username": "AbhinavSingh", "password": "Abhinav17#", "role": "intern"},
+    {"full_name": "Ritesh Yadav", "username": "Ritesh99", "password": "Ritesh@9598", "role": "intern"},
+    {"full_name": "Omwardhan Jha", "username": "Omwardhan", "password": "infinix@123", "role": "intern"},
+    {"full_name": "Aryan Goud", "username": "AryanGoud", "password": "destiny9190", "role": "intern"},
+    {"full_name": "Anurag Verma", "username": "Anurag654", "password": "@Anurag9324", "role": "intern"},
+    {"full_name": "Shubham Sikakul", "username": "shubham10", "password": "shubh@1005", "role": "intern"},
+    {"full_name": "Purva Parab", "username": "puv@5", "password": "pp546", "role": "intern"},
+    {"full_name": "Sahil Ashar", "username": "sahil21", "password": "sahil@21", "role": "intern"},
+    {"full_name": "Sakshi Sarge", "username": "sakshi24", "password": "sakshi@123", "role": "intern"},
+    {"full_name": "Shivam Singh", "username": "shivamsingh", "password": "Shivam@102005", "role": "intern"},
+    {"full_name": "Rahul Singh Rajpurohit", "username": "Rahul_Raj01", "password": "Rahul@Raj01", "role": "intern"},
+    {"full_name": "Shreevathsa Bhat", "username": "Shreevathsa", "password": "shree17", "role": "intern"},
+    {"full_name": "Tanmay Ramesh Walunj", "username": "tanmay5122", "password": "tanmay5122", "role": "intern"},
+    {"full_name": "Akhila Prabhukeluskar", "username": "Akhila", "password": "@khila_05", "role": "intern"},
+    {"full_name": "Mayank Upadhyay", "username": "Mayanku", "password": "123456789", "role": "intern"},
+    {"full_name": "Rishikesh Saroj", "username": "rishikesh", "password": "0987654321", "role": "intern"}
+]
 
-    for intern in interns:
-        user_id = intern["_id"]
-        work_type = random.choice(WORK_TYPES)
+# --------------------------------------
+# Insert Admins + Interns
+# --------------------------------------
+users_col.insert_many(admins + interns)
 
-        # Random login & logout times
-        login_hour = random.randint(9, 11)    # between 9 AM and 11 AM
-        logout_hour = random.randint(17, 19)  # between 5 PM and 7 PM
+print("Admins and Interns inserted successfully.\n")
 
-        login_time = f"{login_hour}:{random.randint(0,59):02d}:{random.randint(0,59):02d}"
-        logout_time = f"{logout_hour}:{random.randint(0,59):02d}:{random.randint(0,59):02d}"
+# --------------------------------------
+# Print Summary
+# --------------------------------------
+print("===== ADMINS (3) =====")
+for a in admins:
+    print(f"{a['full_name']} → {a['username']} | {a['password']}")
 
-        # Insert the attendance document
-        attendance_col.insert_one({
-            "user_id": user_id,
-            "date": date,
-            "work_type": work_type,
-            "login_time": login_time,
-            "logout_time": logout_time,
-            "status": "Present"
-        })
+print("\n===== INTERNS (19) =====")
+for i in interns:
+    print(f"{i['full_name']} → {i['username']} | {i['password']}")
 
-    print(f"✔ Inserted attendance for {date}")
-
-print("\n🎉 Done! Seed data for 10 days created successfully.")
+print("\n🎉 SEEDING COMPLETE! Total users inserted:", len(admins) + len(interns))

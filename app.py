@@ -1250,18 +1250,173 @@ def mark_logout():
 # -----------------------------------------
 # ADMIN DASHBOARD
 # -----------------------------------------
+# @app.route("/admin", methods=["GET", "POST"])
+# @login_required(role="admin")
+# def admin_dashboard():
+#     date = request.form.get("date") or now_ist().strftime("%Y-%m-%d")
+
+#     # Attendance records
+#     records = list(attendance_col.find({"date": date}))
+
+#     for r in records:
+#         u = users_col.find_one({"_id": r["user_id"]})
+#         r["name"] = u["full_name"]
+#         r["username"] = u["username"]
+
+#     # All interns for delete section
+#     interns = list(users_col.find({"role": "intern"}))
+
+#     return render_template("admin_dashboard.html",
+#                            records=records,
+#                            interns=interns,
+#                            date=date)
+
+
+
+
+# @app.route("/admin", methods=["GET", "POST"])
+# @login_required(role="admin")
+# def admin_dashboard():
+#     date = request.form.get("date") or now_ist().strftime("%Y-%m-%d")
+
+#     # Get all interns
+#     interns = list(users_col.find({"role": "intern"}))
+
+#     # Get attendance records for selected date
+#     records = list(attendance_col.find({"date": date}))
+
+#     # Convert attendance list → dictionary for fast lookup
+#     attendance_map = {str(r["user_id"]): r for r in records}
+
+#     # Final table rows
+#     final_rows = []
+
+#     for intern in interns:
+#         intern_id = str(intern["_id"])
+
+#         if intern_id in attendance_map:
+#             r = attendance_map[intern_id]
+#             final_rows.append({
+#                 "name": intern["full_name"],
+#                 "username": intern["username"],
+#                 "work_type": r.get("work_type", "-"),
+#                 "login_time": r.get("login_time", "-"),
+#                 "logout_time": r.get("logout_time", "-"),
+#                 "hours_worked": r.get("hours_worked", "-"),
+#                 "status": r.get("status", "Present")
+#             })
+#         else:
+#             # Intern has no attendance → Absent
+#             final_rows.append({
+#                 "name": intern["full_name"],
+#                 "username": intern["username"],
+#                 "work_type": "-",
+#                 "login_time": "-",
+#                 "logout_time": "-",
+#                 "hours_worked": "-",
+#                 "status": "Absent"
+#             })
+
+#     return render_template("admin_dashboard.html",
+#                            records=final_rows,
+#                            interns=interns,
+#                            date=date)
+
 @app.route("/admin", methods=["GET", "POST"])
 @login_required(role="admin")
 def admin_dashboard():
     date = request.form.get("date") or now_ist().strftime("%Y-%m-%d")
-    records = list(attendance_col.find({"date": date}))
 
-    for r in records:
-        u = users_col.find_one({"_id": r["user_id"]})
-        r["name"] = u["full_name"]
-        r["username"] = u["username"]
+    # Get all interns
+    interns = list(users_col.find({"role": "intern"}))
 
-    return render_template("admin_dashboard.html", records=records, date=date)
+    # Get attendance records for selected date
+    attendance_records = list(attendance_col.find({"date": date}))
+
+    # Map user_id to record
+    attendance_map = {str(r["user_id"]): r for r in attendance_records}
+
+    final_rows = []
+
+    for intern in interns:
+        intern_id = str(intern["_id"])
+
+        if intern_id in attendance_map:
+            r = attendance_map[intern_id]
+            final_rows.append({
+                "name": intern["full_name"],
+                "username": intern["username"],
+                "work_type": r.get("work_type", "-"),
+                "login_time": r.get("login_time", "-"),
+                "logout_time": r.get("logout_time", "-"),
+                "hours_worked": r.get("hours_worked", "-"),
+                "status": "Present"
+            })
+        else:
+            final_rows.append({
+                "name": intern["full_name"],
+                "username": intern["username"],
+                "work_type": "-",
+                "login_time": "-",
+                "logout_time": "-",
+                "hours_worked": "-",
+                "status": "Absent"
+            })
+
+    # Sort: Present first → Absent later
+    final_rows.sort(key=lambda x: 0 if x["status"] == "Present" else 1)
+
+    return render_template("admin_dashboard.html",
+                           records=final_rows,
+                           interns=interns,
+                           date=date)
+
+
+
+@app.route("/admin/delete-intern", methods=["POST"])
+@login_required(role="admin")
+def delete_intern():
+    username = request.form.get("username")
+
+    user = users_col.find_one({"username": username})
+
+    if not user:
+        flash("Intern not found!", "danger")
+        return redirect(url_for("admin_dashboard"))
+
+    user_id = user["_id"]
+
+    users_col.delete_one({"_id": user_id})
+    attendance_col.delete_many({"user_id": user_id})
+
+    flash(f"Intern '{username}' deleted successfully!", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
+#update intern
+@app.route("/admin/update-intern", methods=["POST"])
+@login_required(role="admin")
+def update_intern():
+    original_username = request.form.get("original_username")
+    full_name = request.form.get("full_name").strip()
+    username = request.form.get("username").strip()
+    password = request.form.get("password").strip()
+
+    user = users_col.find_one({"username": original_username})
+    if not user:
+        flash("Intern not found!", "danger")
+        return redirect(url_for("admin_dashboard"))
+
+    update_data = {
+        "full_name": full_name,
+        "username": username,
+        "password": password
+    }
+
+    users_col.update_one({"_id": user["_id"]}, {"$set": update_data})
+
+    flash(f"Intern '{username}' updated successfully!", "success")
+    return redirect(url_for("admin_dashboard"))
 
 
 # -----------------------------------------
@@ -1296,6 +1451,8 @@ def download_excel():
                      download_name=filename,
                      as_attachment=True,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 
 
 # -----------------------------------------
