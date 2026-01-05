@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 animate__animated animate__fadeInDown">
+    <h3 class="text-primary m-0"><i class="fa-solid fa-id-card"></i> Intern Profile</h3>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-dark btn-sm"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+</div>
+
+<div class="row animate__animated animate__fadeInUp">
+    
+    <!-- LEFT: User Info & Stats -->
+    <div class="col-md-4">
+        
+        <!-- Profile Card -->
+        <div class="card p-4 mb-3 text-center">
+            <div class="mb-3">
+                <div class="d-inline-block p-1 rounded-circle" style="background: var(--gradient-orange);">
+                    <div class="bg-white rounded-circle p-1">
+                        <i class="fa-solid fa-circle-user fa-6x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+            <h4>{{ user.full_name }}</h4>
+            <p class="text-muted mb-1">@{{ user.username }}</p>
+            <span class="badge bg-dark rounded-pill px-3">Intern</span>
+            
+            {% if user.joining_date %}
+            <div class="mt-3 small text-muted border-top pt-2">
+                <i class="fa-solid fa-calendar-check"></i> Joined: <strong>{{ user.joining_date }}</strong>
+                {% if user.ending_date %}<br><i class="fa-solid fa-calendar-xmark"></i> Ends: <strong>{{ user.ending_date }}</strong>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Hours Comparison -->
+        <div class="card p-4 mb-3">
+            <h6 class="text-primary mb-3"><i class="fa-solid fa-chart-line"></i> Hours Worked</h6>
+            
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted">Current Month ({{ selected_month }})</span>
+                <span class="fw-bold fs-5">{{ total_hours_month }}</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2 small">
+                <span class="text-muted">Standard Target ({{ user.daily_hours|default(8) }}h/day)</span>
+                <span class="fw-bold text-primary">{{ standard_hours_str }}</span>
+            </div>
+            <div class="progress mb-3" style="height: 6px;">
+                <div class="progress-bar bg-success" style="width: 100%"></div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted">Previous Month ({{ prev_month_str }})</span>
+                <span class="fw-bold fs-5">{{ prev_month_hours }}</span>
+            </div>
+            <div class="progress" style="height: 6px;">
+                <div class="progress-bar bg-secondary" style="width: 100%"></div>
+            </div>
+        </div>
+
+        <!-- Work Location Stats -->
+        <div class="card p-4 mb-3">
+            <h6 class="text-primary mb-3"><i class="fa-solid fa-map-location-dot"></i> Work Locations ({{ selected_month }})</h6>
+            {% if work_type_counts %}
+                {% for type, count in work_type_counts.items() %}
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="fw-bold">{{ type }}</span>
+                        <span class="text-muted">{{ count }} days</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-warning" role="progressbar" 
+                             style="width: {{ (count / monthly_records|length) * 100 }}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted small">No data available for this month.</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- RIGHT: Attendance History -->
+    <div class="col-md-8">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="m-0 text-primary">Attendance History</h5>
+                
+                <!-- Month Filter -->
+                <form method="GET" class="d-flex align-items-center">
+                    <input type="month" name="month" value="{{ selected_month }}" class="form-control form-control-sm me-2" onchange="this.form.submit()">
+                </form>
+            </div>
+
+            <div class="table-responsive table-container">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Work Type</th>
+                            <th>Login</th>
+                            <th>Logout</th>
+                            <th>Hours</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in monthly_records %}
+                        <tr>
+                            <td class="fw-bold">{{ r.date }}</td>
+                            <td>
+                                {% if 'Home' in r.work_type %}
+                                    <span class="badge bg-warning text-dark"><i class="fa-solid fa-house-laptop"></i> WFH</span>
+                                {% else %}
+                                    <span class="badge bg-success"><i class="fa-solid fa-building"></i> Office</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ r.login_time }}</td>
+                            <td>{{ r.logout_time or "-" }}</td>
+                            <td>{{ r.hours_worked or "-" }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted py-4">No records found for {{ selected_month }}.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,335 @@
+
+
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* Calendar Styles */
+  .calendar-table th { text-align: center; color: #666; font-size: 0.85rem; text-transform: uppercase; }
+  .calendar-table td { height: 70px; vertical-align: top; position: relative; padding: 8px; }
+  .calendar-day { font-weight: 700; font-size: 1.1rem; }
+  .text-sunday { color: #dc3545 !important; } /* Red number for Sunday */
+  .text-holiday { color: #d63384 !important; } /* Pink/Red number for Holiday */
+  
+  /* Status Dots */
+  .status-dot {
+      height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-left: 6px; margin-bottom: 2px;
+  }
+  .dot-red { background-color: #dc3545; box-shadow: 0 0 5px rgba(220, 53, 69, 0.5); }
+  .dot-yellow { background-color: #ffc107; box-shadow: 0 0 5px rgba(255, 193, 7, 0.5); }
+  .dot-green { background-color: #28a745; box-shadow: 0 0 5px rgba(40, 167, 69, 0.5); }
+</style>
+
+<div class="row animate__animated animate__fadeIn">
+  
+  <!-- LEFT COLUMN: Profile & Stats -->
+  <div class="col-md-4 mb-4">
+    
+    <!-- Profile Card -->
+    <div class="card p-4 mb-3 text-center">
+      <div class="mb-3">
+        <div class="d-inline-block p-1 rounded-circle" style="background: var(--gradient-orange);">
+            <div class="bg-white rounded-circle p-1">
+                <i class="fa-solid fa-circle-user fa-6x text-primary"></i>
+            </div>
+        </div>
+      </div>
+      <h4>{{ user.full_name }}</h4>
+      <span class="badge bg-dark rounded-pill px-3">Intern</span>
+      <hr>
+      <div class="d-flex justify-content-between">
+        <span><i class="fa-solid fa-id-badge"></i> Username:</span>
+        <strong>{{ user.username }}</strong>
+      </div>
+      {% if user.joining_date %}
+      <div class="d-flex justify-content-between mt-2 small text-muted">
+        <span>Joined:</span> <strong>{{ user.joining_date }}</strong>
+      </div>
+      {% endif %}
+      {% if user.ending_date %}
+      <div class="d-flex justify-content-between mt-1 small text-muted">
+        <span>Ends:</span> <strong>{{ user.ending_date }}</strong>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Monthly Stats Card -->
+    <div class="card p-4 text-white border-0 mb-3" style="background: var(--gradient-orange);">
+      
+      <form method="GET" action="{{ url_for('intern_dashboard') }}" class="mb-3">
+        <label class="small fw-bold opacity-75 mb-1">Select Month</label>
+        <input type="month" name="month" class="form-control text-primary fw-bold border-0" 
+               value="{{ selected_month }}" onchange="this.form.submit()" 
+               style="border-radius: 10px; background: rgba(255,255,255,0.9);">
+      </form>
+
+      <h5><i class="fa-solid fa-clock-rotate-left"></i> Hours Worked</h5>
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        <span class="opacity-75">Total ({{ selected_month }})</span>
+        <h2 class="m-0">{{ total_hours_month|default(0) }}</h2>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-1 border-top border-white border-opacity-25 pt-2">
+        <span class="small opacity-75">Standard Target</span>
+        <span class="fw-bold">{{ standard_hours_str }}</span>
+      </div>
+    </div>
+
+    <!-- VISUAL ANALYTICS CHART -->
+    <div class="card p-4 mb-3">
+        <h6 class="text-primary mb-3"><i class="fa-solid fa-chart-simple"></i> Daily Hours Trend</h6>
+        <canvas id="hoursChart" style="max-height: 200px;"></canvas>
+    </div>
+
+    <!-- Work Location Stats -->
+    <div class="card p-4 mb-3">
+      <h6 class="text-primary mb-3"><i class="fa-solid fa-map-location-dot"></i> Work Locations</h6>
+      
+      <div class="mb-3 pb-2 border-bottom">
+        <h2 class="fw-bold m-0">{{ total_days_worked }}</h2>
+        <span class="text-muted small">Total Days Worked</span>
+      </div>
+
+      {% if work_type_counts %}
+        {% for type, count in work_type_counts.items() %}
+        <div class="mb-2">
+            <div class="d-flex justify-content-between small mb-1">
+                <span class="fw-bold">{{ type }}</span>
+                <span class="text-muted">{{ count }} days</span>
+            </div>
+            <div class="progress" style="height: 6px;">
+                <div class="progress-bar bg-warning" role="progressbar" 
+                     style="width: {{ (count / monthly_records|length) * 100 }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted small mb-0">No attendance data for this month.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- RIGHT COLUMN: Actions & History -->
+  <div class="col-md-8">
+    
+    <div class="card p-4">
+      <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active text-dark fw-bold" id="today-tab" data-bs-toggle="tab" data-bs-target="#today" type="button" role="tab">Today's Action</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link text-dark" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">Attendance History</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link text-dark" id="leaves-tab" data-bs-toggle="tab" data-bs-target="#leaves" type="button" role="tab">Leaves</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link text-dark" id="holidays-tab" data-bs-toggle="tab" data-bs-target="#holidays" type="button" role="tab">Holidays</button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="myTabContent">
+        
+        <!-- TAB 1: TODAY'S ACTION -->
+        <div class="tab-pane fade show active" id="today" role="tabpanel">
+          <h5 class="mb-4 text-primary">Mark Attendance</h5>
+          {% if today_holiday %}
+            <div class="alert alert-danger shadow-sm border-0" style="background-color: #FCE4EC; color: #C2185B;">
+              <h5 class="alert-heading"><i class="fa-solid fa-mug-hot"></i> Holiday Today!</h5>
+              <p class="mb-0">Today is <strong>{{ today_holiday.name }}</strong>. Attendance marking is disabled.</p>
+            </div>
+          {% elif record %}
+            <div class="alert alert-warning shadow-sm border-0" style="background-color: #FFF3E0; color: #E65100;">
+              <div class="row">
+                  <div class="col-6 mb-2"><i class="fa-solid fa-briefcase"></i> <b>Type:</b> {{ record.work_type }}</div>
+                  <div class="col-6 mb-2"><i class="fa-solid fa-clock"></i> <b>Login:</b> {{ record.login_time }}</div>
+                  <div class="col-6"><i class="fa-solid fa-right-from-bracket"></i> <b>Logout:</b> {{ record.logout_time or "Active" }}</div>
+                  <div class="col-6"><i class="fa-solid fa-hourglass-half"></i> <b>Hours:</b> {{ record.hours_worked or "..." }}</div>
+              </div>
+            </div>
+          {% else %}
+            <form method="POST" action="{{ url_for('mark_login') }}">
+              <label class="form-label fw-bold">Select Work Type</label>
+              <select name="work_type" class="form-select mb-3 py-3" required style="border-radius: 10px;">
+                {% for wt in work_types %}
+                  <option>{{ wt }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-success w-100 py-2 shadow-sm"><i class="fa-solid fa-check-circle"></i> Mark Login</button>
+            </form>
+          {% endif %}
+
+          {% if record and not record.logout_time %}
+            <hr>
+            <form method="POST" action="{{ url_for('mark_logout') }}">
+              <button class="btn btn-danger w-100 py-2 shadow-sm"><i class="fa-solid fa-power-off"></i> Mark Logout</button>
+            </form>
+          {% endif %}
+        </div>
+
+        <!-- TAB 2: MONTHLY HISTORY -->
+        <div class="tab-pane fade" id="history" role="tabpanel">
+          <h5 class="mb-3 text-primary">Attendance History ({{ selected_month }})</h5>
+          <div class="table-responsive table-container">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Login</th>
+                  <th>Logout</th>
+                  <th>Hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in monthly_records %}
+                <tr>
+                  <td class="fw-bold">{{ row.date }}</td>
+                  <td>
+                    {% if row.work_type == 'Holiday' %}
+                      <span class="badge bg-danger">{{ row.holiday_name }}</span>
+                    {% else %}
+                      {{ row.login_time }}
+                    {% endif %}
+                  </td>
+                  <td>{{ row.logout_time }}</td>
+                  <td>
+                    {{ row.hours_worked }}
+                    {% if row.early_leaver %}
+                        <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">Early Leaver</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted">No records found for {{ selected_month }}.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: LEAVES -->
+        <div class="tab-pane fade" id="leaves" role="tabpanel">
+            <h5 class="mb-3 text-primary">Apply for Leave</h5>
+            <form method="POST" action="{{ url_for('apply_leave') }}" class="mb-4 p-3 bg-light rounded">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="small fw-bold">Start Date</label>
+                        <input type="date" name="start_date" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold">End Date</label>
+                        <input type="date" name="end_date" class="form-control" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="small fw-bold">Reason</label>
+                        <textarea name="reason" class="form-control" rows="2" required></textarea>
+                    </div>
+                    <div class="col-12 text-end mt-2">
+                        <button class="btn btn-primary btn-sm">Submit Request</button>
+                    </div>
+                </div>
+            </form>
+
+            <h6 class="text-muted border-bottom pb-2">Leave History</h6>
+            <ul class="list-group list-group-flush">
+                {% for l in leaves %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <div>
+                        <div class="fw-bold">{{ l.start_date }} to {{ l.end_date }}</div>
+                        <small class="text-muted">{{ l.reason }}</small>
+                    </div>
+                    <span class="badge {% if l.status == 'Approved' %}bg-success{% elif l.status == 'Rejected' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                        {{ l.status }}
+                    </span>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted text-center">No leave requests found.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- TAB 4: HOLIDAYS -->
+        <div class="tab-pane fade" id="holidays" role="tabpanel">
+          <h5 class="mb-3 text-primary">Upcoming Holidays</h5>
+          <ul class="list-group">
+            {% for h in holidays %}
+            <li class="list-group-item d-flex justify-content-between align-items-center border-0 mb-2 shadow-sm rounded">
+              <span><i class="fa-solid fa-calendar-day text-primary me-2"></i> {{ h.name }}</span>
+              <span class="badge bg-dark rounded-pill">{{ h.date }}</span>
+            </li>
+            {% else %}
+            <li class="list-group-item text-muted">No upcoming holidays listed.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CALENDAR CARD -->
+    <div class="card p-4 mt-3 shadow-sm">
+      <h5 class="text-primary mb-3"><i class="fa-solid fa-calendar-days"></i> Attendance Calendar</h5>
+      <div class="table-responsive">
+        <table class="table table-bordered calendar-table mb-0">
+          <thead class="bg-light">
+            <tr>
+              <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th class="text-danger">Sun</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for week in calendar_data %}
+            <tr>
+              {% for day in week %}
+                {% if day is none %}
+                  <td class="bg-light opacity-25"></td>
+                {% else %}
+                  <td>
+                    <span class="calendar-day {% if day.is_holiday %}text-holiday{% elif day.is_sunday %}text-sunday{% endif %}">{{ day.day }}</span>
+                    
+                    {% if day.is_holiday %}
+                      <div style="font-size: 0.65rem; line-height: 1.1; color: #d63384;" class="fw-bold mt-1">{{ day.holiday_name }}</div>
+                    {% elif day.circle_color %}
+                      <span class="status-dot dot-{{ day.circle_color }}" title="{{ day.tooltip }}" data-bs-toggle="tooltip"></span>
+                    {% endif %}
+                  </td>
+                {% endif %}
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Chart.js Initialization
+  const ctx = document.getElementById('hoursChart').getContext('2d');
+  const hoursChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+          labels: {{ chart_labels | tojson }},
+          datasets: [{
+              label: 'Hours Worked',
+              data: {{ chart_data | tojson }},
+              backgroundColor: 'rgba(255, 140, 0, 0.6)',
+              borderColor: 'rgba(255, 140, 0, 1)',
+              borderWidth: 1,
+              borderRadius: 5
+          }]
+      },
+      options: {
+          responsive: true,
+          scales: {
+              y: {
+                  beginAtZero: true,
+                  suggestedMax: 10
+              }
+          }
+      }
+  });
+</script>
+
+{% endblock %}

@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .admin-calendar td {
+      text-align: center;
+      padding: 5px;
+      cursor: pointer;
+  }
+  .admin-calendar a {
+      display: block;
+      width: 100%;
+      height: 100%;
+      text-decoration: none;
+      color: #333;
+      padding: 8px 0;
+      border-radius: 10px;
+      transition: 0.2s;
+  }
+  .admin-calendar a:hover {
+      background-color: #FFB74D;
+      color: white;
+  }
+  .admin-calendar .selected-date {
+      background-color: #E65100;
+      color: white !important;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(230, 81, 0, 0.3);
+  }
+  .text-sunday { color: #dc3545; }
+  .text-holiday { color: #d63384; font-weight: bold; }
+</style>
+
+<h3 class="mb-4 animate__animated animate__fadeInLeft text-primary"><i class="fa-solid fa-user-shield"></i> Admin Dashboard</h3>
+
+<!-- STATS CARDS -->
+<div class="row mb-4 animate__animated animate__fadeInDown">
+  <div class="col-md-4">
+    <div class="card p-3 text-white mb-3" style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);">
+      <div class="d-flex justify-content-between align-items-center">
+        <div><h5 class="m-0">Total Interns</h5></div>
+        <div><i class="fa-solid fa-users fa-2x opacity-50"></i></div>
+      </div>
+      <h2 class="mt-2 fw-bold">{{ total_interns }}</h2>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3 text-white mb-3" style="background: linear-gradient(135deg, #66BB6A 0%, #43A047 100%);">
+      <div class="d-flex justify-content-between align-items-center">
+        <div><h5 class="m-0">Present Today</h5></div>
+        <div><i class="fa-solid fa-user-check fa-2x opacity-50"></i></div>
+      </div>
+      <h2 class="mt-2 fw-bold">{{ present_count }}</h2>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3 text-white mb-3" style="background: linear-gradient(135deg, #EF5350 0%, #C62828 100%);">
+      <div class="d-flex justify-content-between align-items-center">
+        <div><h5 class="m-0">Absent Today</h5></div>
+        <div><i class="fa-solid fa-user-xmark fa-2x opacity-50"></i></div>
+      </div>
+      <h2 class="mt-2 fw-bold">{{ absent_count }}</h2>
+    </div>
+  </div>
+</div>
+
+<!-- Add Intern + Manage Interns -->
+<div class="d-flex gap-2 mb-4 animate__animated animate__fadeInUp">
+  <a href="{{ url_for('add_intern') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add New Intern</a>
+
+  <!-- Dropdown Toggle -->
+  <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#internDropdown" aria-expanded="false" aria-controls="internDropdown">
+    <i class="fa-solid fa-users-gear"></i> Manage Interns
+  </button>
+
+  <button class="btn btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#holidayDropdown" aria-expanded="false" aria-controls="holidayDropdown">
+    <i class="fa-solid fa-calendar-plus"></i> Manage Holidays
+  </button>
+
+  <button class="btn btn-outline-warning text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#leaveDropdown" aria-expanded="false" aria-controls="leaveDropdown">
+    <i class="fa-solid fa-envelope-open-text"></i> Leave Requests {% if pending_leaves %}<span class="badge bg-danger rounded-pill">{{ pending_leaves|length }}</span>{% endif %}
+  </button>
+</div>
+
+<!-- COLLAPSIBLE INTERN LIST -->
+<div class="collapse" id="internDropdown">
+  <div class="card card-body mb-4">
+      <h5><i class="fa-solid fa-list"></i> Manage Interns</h5>
+
+      <table class="table table-bordered table-sm mt-3">
+        <thead style="background: #3E2723; color: white;">
+          <tr>
+            <th>Full Name</th>
+            <th>Username</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for i in interns %}
+          <tr>
+            <td>{{ i.full_name }}</td>
+            <td>{{ i.username }}</td>
+            <td class="d-flex gap-2">
+
+              <!-- EDIT BUTTON -->
+              <button class="btn btn-warning btn-sm"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#edit{{ i.username }}">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+
+              <!-- DELETE BUTTON -->
+              <form method="POST" action="{{ url_for('delete_intern') }}"
+                    onsubmit="return confirm('Are you sure you want to delete this intern?');">
+                <input type="hidden" name="username" value="{{ i.username }}">
+                <button class="btn btn-danger btn-sm"><i class="fa-solid fa-trash"></i></button>
+              </form>
+
+            </td>
+          </tr>
+
+          <!-- COLLAPSIBLE EDIT FORM -->
+          <tr class="collapse" id="edit{{ i.username }}">
+            <td colspan="3">
+              <div class="card card-body">
+
+                <form method="POST" action="{{ url_for('update_intern') }}">
+
+                  <input type="hidden" name="original_username" value="{{ i.username }}">
+
+                  <div class="mb-2">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-control" name="full_name" value="{{ i.full_name }}" required>
+                  </div>
+
+                  <div class="mb-2">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" name="username" value="{{ i.username }}" required>
+                  </div>
+
+                  <div class="mb-2">
+                    <label class="form-label">Password</label>
+                    <input type="text" class="form-control" name="password" value="{{ i.password }}" required>
+                  </div>
+
+                  <div class="mb-2">
+                    <label class="form-label">Daily Work Hours</label>
+                    <input type="number" class="form-control" name="daily_hours" value="{{ i.daily_hours|default(8) }}" required>
+                  </div>
+
+                  <div class="mb-2">
+                    <label class="form-label">Joining Date</label>
+                    <input type="date" class="form-control" name="joining_date" value="{{ i.joining_date }}">
+                  </div>
+
+                  <div class="mb-2">
+                    <label class="form-label">Ending Date</label>
+                    <input type="date" class="form-control" name="ending_date" value="{{ i.ending_date }}">
+                  </div>
+
+                  <button class="btn btn-primary btn-sm mt-2">Update</button>
+
+                </form>
+
+              </div>
+            </td>
+          </tr>
+
+          {% endfor %}
+        </tbody>
+      </table>
+  </div>
+</div>
+
+<!-- COLLAPSIBLE HOLIDAY MANAGEMENT -->
+<div class="collapse" id="holidayDropdown">
+  <div class="card card-body mb-4">
+      <h5><i class="fa-solid fa-umbrella-beach"></i> Manage Holidays</h5>
+      
+      <div class="row">
+        <div class="col-md-4">
+          <form method="POST" action="{{ url_for('add_holiday') }}" class="p-3 bg-light rounded">
+            <label class="form-label fw-bold">Add Holiday</label>
+            <input type="date" name="date" class="form-control mb-2" value="{{ date }}" required>
+            <input type="text" name="name" class="form-control mb-2" placeholder="Holiday Name (e.g. Diwali)" required>
+            <button class="btn btn-danger btn-sm w-100">Add Holiday</button>
+          </form>
+        </div>
+        <div class="col-md-8">
+          <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+            <table class="table table-sm table-bordered mb-0">
+              <thead class="table-light"><tr><th>Date</th><th>Name</th><th>Action</th></tr></thead>
+              <tbody>
+                {% for h in holidays %}
+                <tr>
+                  <td>{{ h.date }}</td>
+                  <td>{{ h.name }}</td>
+                  <td>
+                    <form method="POST" action="{{ url_for('delete_holiday') }}" class="d-inline">
+                      <input type="hidden" name="holiday_id" value="{{ h._id }}">
+                      <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="return confirm('Delete this holiday?')">&times;</button>
+                    </form>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="text-center text-muted">No holidays added.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+  </div>
+</div>
+
+<!-- COLLAPSIBLE LEAVE REQUESTS -->
+<div class="collapse" id="leaveDropdown">
+    <div class="card card-body mb-4 border-warning border-opacity-25" style="background-color: #fffbf0;">
+        <h5><i class="fa-solid fa-envelope-open-text"></i> Pending Leave Requests</h5>
+        
+        <div class="table-responsive mt-3">
+            <table class="table table-sm table-bordered bg-white">
+                <thead class="table-light">
+                    <tr><th>Intern</th><th>Dates</th><th>Reason</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    {% for l in pending_leaves %}
+                    <tr>
+                        <td class="fw-bold">{{ l.intern_name }}</td>
+                        <td>{{ l.start_date }} <i class="fa-solid fa-arrow-right small text-muted"></i> {{ l.end_date }}</td>
+                        <td>{{ l.reason }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('manage_leave') }}" class="d-flex gap-1">
+                                <input type="hidden" name="leave_id" value="{{ l._id }}">
+                                <button name="action" value="Approved" class="btn btn-success btn-sm py-0 px-2"><i class="fa-solid fa-check"></i></button>
+                                <button name="action" value="Rejected" class="btn btn-danger btn-sm py-0 px-2"><i class="fa-solid fa-xmark"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-center text-muted">No pending leave requests.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<hr>
+
+<div class="row">
+  <!-- LEFT: CALENDAR WIDGET -->
+  <div class="col-md-4 mb-4">
+    <div class="card p-4 shadow-sm h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="m-0 text-primary"><i class="fa-solid fa-calendar-days"></i> Select Date</h5>
+        <form method="GET">
+            <input type="month" name="month" value="{{ calendar_month }}" class="form-control form-control-sm border-0 bg-light fw-bold" onchange="this.form.submit()">
+        </form>
+      </div>
+      
+      <table class="table table-borderless admin-calendar mb-0">
+        <thead>
+          <tr class="text-center text-muted small text-uppercase">
+            <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th class="text-danger">Sun</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for week in calendar_data %}
+          <tr>
+            {% for day in week %}
+              <td>
+                {% if day %}
+                  <a href="{{ url_for('admin_dashboard', date=day.full_date, month=calendar_month) }}" 
+                     class="{% if day.is_selected %}selected-date{% endif %} {% if day.is_holiday %}text-holiday{% elif day.is_sunday %}text-sunday{% endif %}"
+                     title="{{ day.holiday_name }}">
+                    {{ day.day }}
+                    {% if day.is_holiday %}
+                      <div style="font-size: 0.55rem; line-height: 1;">{{ day.holiday_name }}</div>
+                    {% endif %}
+                  </a>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      
+      <div class="mt-4 text-center">
+        <p class="text-muted small mb-1">Selected Date</p>
+        <h4 class="fw-bold text-dark">{{ date }}</h4>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: ATTENDANCE TABLE -->
+  <div class="col-md-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-3">
+            <h5 class="text-primary m-0"><i class="fa-solid fa-clipboard-user"></i> Attendance Records</h5>
+            <div class="form-check form-switch m-0" title="Show only interns who worked less than target hours">
+                <input class="form-check-input" type="checkbox" id="earlyLeaverSwitch" onclick="toggleEarlyLeavers()" style="cursor: pointer;">
+                <label class="form-check-label small fw-bold text-muted" for="earlyLeaverSwitch" style="cursor: pointer;">Early Leavers</label>
+            </div>
+        </div>
+        
+        <!-- DOWNLOAD EXCEL -->
+        <form method="POST" action="{{ url_for('download_excel') }}">
+          <input type="hidden" name="date" value="{{ date }}">
+          <button class="btn btn-success btn-sm shadow-sm"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
+        </form>
+    </div>
+
+    {% if records %}
+    <div class="table-container shadow-sm animate__animated animate__fadeInUp">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Work Type</th>
+          <th>Login</th>
+          <th>Logout</th>
+          <th>Hours</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+
+      <tbody class="bg-white">
+        {% for r in records %}
+        <tr class="attendance-row {% if r.status == 'Present' %}bg-opacity-10 bg-success{% else %}bg-opacity-10 bg-danger{% endif %}" data-early-leaver="{{ r.is_early_leaver|lower }}">
+          <td>
+            <a href="{{ url_for('admin_intern_profile', user_id=r.user_id) }}" class="text-decoration-none fw-bold text-dark">
+                {{ r.name }} <i class="fa-solid fa-arrow-up-right-from-square small text-muted ms-1"></i>
+            </a>
+            <div class="small text-muted">{{ r.username }}</div>
+          </td>
+          <td>{{ r.work_type }}</td>
+          <td>{{ r.login_time }}</td>
+          <td>{{ r.logout_time or "-" }}</td>
+          <td>
+            {{ r.hours_worked or "-" }}
+            {% if r.is_early_leaver %}
+                <i class="fa-solid fa-triangle-exclamation text-warning ms-1" title="Early Leaver (Target not met)" data-bs-toggle="tooltip"></i>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if r.status == "Present" %}
+            <span class="badge bg-success">Present</span>
+            {% elif "Holiday" in r.status %}
+            <span class="badge bg-info text-dark">{{ r.status }}</span>
+            {% else %}
+            <span class="badge bg-danger">Absent</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">No attendance records found for this date.</div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function toggleEarlyLeavers() {
+    const isChecked = document.getElementById('earlyLeaverSwitch').checked;
+    const rows = document.querySelectorAll('.attendance-row');
+    
+    rows.forEach(row => {
+        const isEarly = row.getAttribute('data-early-leaver') === 'true';
+        if (isChecked && !isEarly) {
+            row.style.display = 'none';
+        } else {
+            row.style.display = '';
+        }
+    });
+}
+</script>
+
+{% endblock %}

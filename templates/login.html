@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+
+{% block content %}
+
+<div class="row justify-content-center">
+  <div class="col-md-4">
+    <div class="card p-5 shadow-lg animate__animated animate__zoomIn">
+      <h4 class="text-center mb-4 text-primary"><i class="fa-solid fa-user-lock"></i> Login</h4>
+
+      <form method="POST">
+        <input name="username" class="form-control mb-3 py-3 bg-light border-0" placeholder="Username" required style="border-radius: 10px;">
+        <input name="password" class="form-control mb-4 py-3 bg-light border-0" type="password" placeholder="Password" required style="border-radius: 10px;">
+        <button class="btn btn-primary w-100 py-3 shadow fw-bold">Login <i class="fa-solid fa-arrow-right ms-2"></i></button>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
