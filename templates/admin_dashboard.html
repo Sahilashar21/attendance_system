@@ -65,8 +65,10 @@
 </div>
 
 <!-- Add Intern + Manage Interns -->
-<div class="d-flex gap-2 mb-4 animate__animated animate__fadeInUp">
-  <a href="{{ url_for('add_intern') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add New Intern</a>
+<div class="d-flex gap-2 mb-4 animate__animated animate__fadeInUp flex-wrap">
+  <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#addInternDropdown" aria-expanded="false" aria-controls="addInternDropdown">
+    <i class="fa-solid fa-plus"></i> Add New Intern
+  </button>
 
   <!-- Dropdown Toggle -->
   <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#internDropdown" aria-expanded="false" aria-controls="internDropdown">
@@ -82,11 +84,30 @@
   </button>
 </div>
 
+<div id="dashboardAccordion">
+
+<!-- COLLAPSIBLE ADD INTERN -->
+<div class="collapse" id="addInternDropdown" data-bs-parent="#dashboardAccordion">
+  <div class="card card-body mb-4">
+      <h5><i class="fa-solid fa-user-plus"></i> Add New Intern</h5>
+      <form method="POST" action="{{ url_for('add_intern') }}" class="mt-3">
+        <div class="row">
+            <div class="col-md-6 mb-3"><label class="form-label">Full Name</label><input name="full_name" class="form-control" required></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Username</label><input name="username" class="form-control" required></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Password</label><input name="password" type="password" class="form-control" required></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Daily Work Hours</label><input name="daily_hours" type="number" class="form-control" value="8" required></div>
+        </div>
+        <button class="btn btn-success"><i class="fa-solid fa-check"></i> Add Intern</button>
+      </form>
+  </div>
+</div>
+
 <!-- COLLAPSIBLE INTERN LIST -->
-<div class="collapse" id="internDropdown">
+<div class="collapse" id="internDropdown" data-bs-parent="#dashboardAccordion">
   <div class="card card-body mb-4">
       <h5><i class="fa-solid fa-list"></i> Manage Interns</h5>
 
+      <div class="table-responsive">
       <table class="table table-bordered table-sm mt-3">
         <thead style="background: #3E2723; color: white;">
           <tr>
@@ -171,11 +192,12 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
   </div>
 </div>
 
 <!-- COLLAPSIBLE HOLIDAY MANAGEMENT -->
-<div class="collapse" id="holidayDropdown">
+<div class="collapse" id="holidayDropdown" data-bs-parent="#dashboardAccordion">
   <div class="card card-body mb-4">
       <h5><i class="fa-solid fa-umbrella-beach"></i> Manage Holidays</h5>
       
@@ -216,7 +238,7 @@
 </div>
 
 <!-- COLLAPSIBLE LEAVE REQUESTS -->
-<div class="collapse" id="leaveDropdown">
+<div class="collapse" id="leaveDropdown" data-bs-parent="#dashboardAccordion">
     <div class="card card-body mb-4 border-warning border-opacity-25" style="background-color: #fffbf0;">
         <h5><i class="fa-solid fa-envelope-open-text"></i> Pending Leave Requests</h5>
         
@@ -248,12 +270,14 @@
     </div>
 </div>
 
+</div>
+
 <hr>
 
 <div class="row">
   <!-- LEFT: CALENDAR WIDGET -->
   <div class="col-md-4 mb-4">
-    <div class="card p-4 shadow-sm h-100">
+    <div class="card p-3 p-md-4 shadow-sm h-100">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="m-0 text-primary"><i class="fa-solid fa-calendar-days"></i> Select Date</h5>
         <form method="GET">
@@ -261,6 +285,7 @@
         </form>
       </div>
       
+      <div class="table-responsive">
       <table class="table table-borderless admin-calendar mb-0">
         <thead>
           <tr class="text-center text-muted small text-uppercase">
@@ -288,6 +313,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
       
       <div class="mt-4 text-center">
         <p class="text-muted small mb-1">Selected Date</p>
@@ -298,7 +324,7 @@
 
   <!-- RIGHT: ATTENDANCE TABLE -->
   <div class="col-md-8">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="d-flex align-items-center gap-3">
             <h5 class="text-primary m-0"><i class="fa-solid fa-clipboard-user"></i> Attendance Records</h5>
             <div class="form-check form-switch m-0" title="Show only interns who worked less than target hours">
@@ -315,7 +341,7 @@
     </div>
 
     {% if records %}
-    <div class="table-container shadow-sm animate__animated animate__fadeInUp">
+    <div class="table-responsive table-container shadow-sm animate__animated animate__fadeInUp">
     <table class="table table-hover mb-0">
       <thead>
         <tr>

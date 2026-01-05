@@ -18,15 +18,19 @@
   .dot-red { background-color: #dc3545; box-shadow: 0 0 5px rgba(220, 53, 69, 0.5); }
   .dot-yellow { background-color: #ffc107; box-shadow: 0 0 5px rgba(255, 193, 7, 0.5); }
   .dot-green { background-color: #28a745; box-shadow: 0 0 5px rgba(40, 167, 69, 0.5); }
+
+  @media (max-width: 768px) {
+    .calendar-table td { height: 50px; padding: 4px; }
+  }
 </style>
 
 <div class="row animate__animated animate__fadeIn">
   
-  <!-- LEFT COLUMN: Profile & Stats -->
+  <!-- 1. PROFILE CARD (Top Left) -->
   <div class="col-md-4 mb-4">
     
     <!-- Profile Card -->
-    <div class="card p-4 mb-3 text-center">
+    <div class="card p-4 text-center h-100">
       <div class="mb-3">
         <div class="d-inline-block p-1 rounded-circle" style="background: var(--gradient-orange);">
             <div class="bg-white rounded-circle p-1">
@@ -52,7 +56,51 @@
       </div>
       {% endif %}
     </div>
+  </div>
 
+  <!-- 2. TODAY'S ACTION (Top Right) -->
+  <div class="col-md-8 mb-4">
+    
+    <!-- TODAY'S ACTION (Standalone Card) -->
+    <div class="card p-4 shadow-sm h-100">
+      <h5 class="mb-4 text-primary"><i class="fa-solid fa-clipboard-check"></i> Today's Action</h5>
+      {% if today_holiday %}
+        <div class="alert alert-danger shadow-sm border-0" style="background-color: #FCE4EC; color: #C2185B;">
+          <h5 class="alert-heading"><i class="fa-solid fa-mug-hot"></i> Holiday Today!</h5>
+          <p class="mb-0">Today is <strong>{{ today_holiday.name }}</strong>. Attendance marking is disabled.</p>
+        </div>
+      {% elif record %}
+        <div class="alert alert-warning shadow-sm border-0" style="background-color: #FFF3E0; color: #E65100;">
+          <div class="row">
+              <div class="col-6 mb-2"><i class="fa-solid fa-briefcase"></i> <b>Type:</b> {{ record.work_type }}</div>
+              <div class="col-6 mb-2"><i class="fa-solid fa-clock"></i> <b>Login:</b> {{ record.login_time }}</div>
+              <div class="col-6"><i class="fa-solid fa-right-from-bracket"></i> <b>Logout:</b> {{ record.logout_time or "Active" }}</div>
+              <div class="col-6"><i class="fa-solid fa-hourglass-half"></i> <b>Hours:</b> {{ record.hours_worked or "..." }}</div>
+          </div>
+        </div>
+      {% else %}
+        <form method="POST" action="{{ url_for('mark_login') }}">
+          <label class="form-label fw-bold">Select Work Type</label>
+          <select name="work_type" class="form-select mb-3 py-3" required style="border-radius: 10px;">
+            {% for wt in work_types %}
+              <option>{{ wt }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-success w-100 py-2 shadow-sm"><i class="fa-solid fa-check-circle"></i> Mark Login</button>
+        </form>
+      {% endif %}
+
+      {% if record and not record.logout_time %}
+        <hr>
+        <form method="POST" action="{{ url_for('mark_logout') }}">
+          <button class="btn btn-danger w-100 py-2 shadow-sm"><i class="fa-solid fa-power-off"></i> Mark Logout</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 3. STATS COLUMN (Bottom Left) -->
+  <div class="col-md-4 mb-4">
     <!-- Monthly Stats Card -->
     <div class="card p-4 text-white border-0 mb-3" style="background: var(--gradient-orange);">
       
@@ -106,19 +154,14 @@
         <p class="text-muted small mb-0">No attendance data for this month.</p>
       {% endif %}
     </div>
-
   </div>
-
-  <!-- RIGHT COLUMN: Actions & History -->
-  <div class="col-md-8">
     
+  <!-- 4. HISTORY & CALENDAR (Bottom Right) -->
+  <div class="col-md-8 mb-4">
     <div class="card p-4">
       <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active text-dark fw-bold" id="today-tab" data-bs-toggle="tab" data-bs-target="#today" type="button" role="tab">Today's Action</button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link text-dark" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">Attendance History</button>
+          <button class="nav-link active text-dark fw-bold" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">Attendance History</button>
         </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link text-dark" id="leaves-tab" data-bs-toggle="tab" data-bs-target="#leaves" type="button" role="tab">Leaves</button>
@@ -130,45 +173,8 @@
 
       <div class="tab-content" id="myTabContent">
         
-        <!-- TAB 1: TODAY'S ACTION -->
-        <div class="tab-pane fade show active" id="today" role="tabpanel">
-          <h5 class="mb-4 text-primary">Mark Attendance</h5>
-          {% if today_holiday %}
-            <div class="alert alert-danger shadow-sm border-0" style="background-color: #FCE4EC; color: #C2185B;">
-              <h5 class="alert-heading"><i class="fa-solid fa-mug-hot"></i> Holiday Today!</h5>
-              <p class="mb-0">Today is <strong>{{ today_holiday.name }}</strong>. Attendance marking is disabled.</p>
-            </div>
-          {% elif record %}
-            <div class="alert alert-warning shadow-sm border-0" style="background-color: #FFF3E0; color: #E65100;">
-              <div class="row">
-                  <div class="col-6 mb-2"><i class="fa-solid fa-briefcase"></i> <b>Type:</b> {{ record.work_type }}</div>
-                  <div class="col-6 mb-2"><i class="fa-solid fa-clock"></i> <b>Login:</b> {{ record.login_time }}</div>
-                  <div class="col-6"><i class="fa-solid fa-right-from-bracket"></i> <b>Logout:</b> {{ record.logout_time or "Active" }}</div>
-                  <div class="col-6"><i class="fa-solid fa-hourglass-half"></i> <b>Hours:</b> {{ record.hours_worked or "..." }}</div>
-              </div>
-            </div>
-          {% else %}
-            <form method="POST" action="{{ url_for('mark_login') }}">
-              <label class="form-label fw-bold">Select Work Type</label>
-              <select name="work_type" class="form-select mb-3 py-3" required style="border-radius: 10px;">
-                {% for wt in work_types %}
-                  <option>{{ wt }}</option>
-                {% endfor %}
-              </select>
-              <button class="btn btn-success w-100 py-2 shadow-sm"><i class="fa-solid fa-check-circle"></i> Mark Login</button>
-            </form>
-          {% endif %}
-
-          {% if record and not record.logout_time %}
-            <hr>
-            <form method="POST" action="{{ url_for('mark_logout') }}">
-              <button class="btn btn-danger w-100 py-2 shadow-sm"><i class="fa-solid fa-power-off"></i> Mark Logout</button>
-            </form>
-          {% endif %}
-        </div>
-
-        <!-- TAB 2: MONTHLY HISTORY -->
-        <div class="tab-pane fade" id="history" role="tabpanel">
+        <!-- TAB 1: MONTHLY HISTORY -->
+        <div class="tab-pane fade show active" id="history" role="tabpanel">
           <h5 class="mb-3 text-primary">Attendance History ({{ selected_month }})</h5>
           <div class="table-responsive table-container">
             <table class="table table-hover align-middle mb-0">
