@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3 class="mb-4 animate__animated animate__fadeInLeft">Add New Intern</h3>
+
+<div class="card p-4 shadow animate__animated animate__fadeInUp">
+
+  <form method="POST">
+
+    <label>Full Name</label>
+    <input name="full_name" class="form-control mb-3 py-2" required style="border-radius: 10px;">
+
+    <label>Username</label>
+    <input name="username" class="form-control mb-3 py-2" required style="border-radius: 10px;">
+
+    <label>Password</label>
+    <input name="password" type="password" class="form-control mb-3 py-2" required style="border-radius: 10px;">
+
+    <label>Daily Work Hours (Target)</label>
+    <input name="daily_hours" type="number" class="form-control mb-3 py-2" value="8" required style="border-radius: 10px;">
+
+    <button class="btn btn-success w-100">Add Intern</button>
+
+  </form>
+
+</div>
+
+{% endblock %}
