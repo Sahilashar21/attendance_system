@@ -556,6 +556,8 @@ def admin_intern_profile(user_id):
 
     work_type_counts = {}
     total_minutes = 0
+    chart_labels = []
+    chart_data = []
 
     for r in monthly_records:
         # Count Work Types
@@ -570,7 +572,16 @@ def admin_intern_profile(user_id):
                 h = int(parts[0].replace("h", ""))
                 m = int(parts[1].replace("m", ""))
                 total_minutes += (h * 60) + m
+
+                # Chart Data
+                float_hours = h + (m / 60)
+                chart_labels.append(r["date"][8:])
+                chart_data.append(round(float_hours, 2))
             except: pass
+
+    # Reverse for chronological order
+    chart_labels.reverse()
+    chart_data.reverse()
 
     total_hours_month = f"{total_minutes // 60}h {total_minutes % 60}m"
 
@@ -603,7 +614,9 @@ def admin_intern_profile(user_id):
                            total_hours_month=total_hours_month,
                            prev_month_str=prev_month_str,
                            prev_month_hours=prev_month_hours,
-                           standard_hours_str=standard_hours_str)
+                           standard_hours_str=standard_hours_str,
+                           chart_labels=chart_labels,
+                           chart_data=chart_data)
 
 
 # -----------------------------------------

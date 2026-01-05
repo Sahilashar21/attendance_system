@@ -57,6 +57,12 @@
             </div>
         </div>
 
+        <!-- VISUAL ANALYTICS CHART -->
+        <div class="card p-4 mb-3">
+            <h6 class="text-primary mb-3"><i class="fa-solid fa-chart-simple"></i> Daily Hours Trend</h6>
+            <canvas id="hoursChart" style="max-height: 200px;"></canvas>
+        </div>
+
         <!-- Work Location Stats -->
         <div class="card p-4 mb-3">
             <h6 class="text-primary mb-3"><i class="fa-solid fa-map-location-dot"></i> Work Locations ({{ selected_month }})</h6>
@@ -128,5 +134,51 @@
     </div>
 
 </div>
+
+<script>
+  const ctx = document.getElementById('hoursChart').getContext('2d');
+  new Chart(ctx, {
+      type: 'bar',
+      data: {
+          labels: {{ chart_labels | tojson }},
+          datasets: [{
+              label: 'Hours Worked',
+              data: {{ chart_data | tojson }},
+              backgroundColor: 'rgba(255, 140, 0, 0.7)',
+              borderColor: 'rgba(230, 81, 0, 1)',
+              borderWidth: 1,
+              borderRadius: 5
+          }]
+      },
+      options: {
+          responsive: true,
+          scales: {
+              y: {
+                  beginAtZero: true,
+                  suggestedMax: 10,
+                  ticks: {
+                      callback: function(value) {
+                          const h = Math.floor(value);
+                          const m = Math.round((value - h) * 60);
+                          return h + 'h ' + (m > 0 ? m + 'm' : '');
+                      }
+                  }
+              }
+          },
+          plugins: {
+              tooltip: {
+                  callbacks: {
+                      label: function(context) {
+                          const value = context.raw;
+                          const h = Math.floor(value);
+                          const m = Math.round((value - h) * 60);
+                          return 'Hours Worked: ' + h + 'h ' + (m > 0 ? m + 'm' : '');
+                      }
+                  }
+              }
+          }
+      }
+  });
+</script>
 
 {% endblock %}
