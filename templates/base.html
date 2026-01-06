@@ -135,7 +135,7 @@
       Attendance System
     </span>
 
-    {% if session.get("user_id") %}
+    {% if session.get("user_id") and request.endpoint != 'login' %}
       <a href="{{ url_for('logout') }}" class="btn btn-logout btn-sm ms-lg-auto"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
     {% endif %}
   </div>
