@@ -226,6 +226,14 @@ def intern_dashboard():
     today_dt = now_ist()
     today_str = today_dt.strftime("%Y-%m-%d")
     today_holiday = holidays_col.find_one({"date": today_str})
+    
+    # Check for approved leave today
+    leave_today = leaves_col.find_one({
+        "user_id": user["_id"],
+        "start_date": {"$lte": today_str},
+        "end_date": {"$gte": today_str},
+        "status": "Approved"
+    })
 
     # If not an admin holiday, check if it is Sunday
     if not today_holiday and today_dt.weekday() == 6:
@@ -252,14 +260,37 @@ def intern_dashboard():
             circle_color = None
             tooltip = ""
 
+            # Check if user has approved leave on this date
+            leave_on_date = leaves_col.find_one({
+                "user_id": user["_id"],
+                "start_date": {"$lte": date_str},
+                "end_date": {"$gte": date_str},
+                "status": "Approved"
+            })
+
+            is_leave = False
+
             if date_str in attendance_map:
                 wt = attendance_map[date_str].lower()
                 if "home" in wt:
                     circle_color = "yellow"
                     tooltip = "Work From Home"
+                elif "leave" in wt:
+                    circle_color = None
+                    is_leave = True
+                    tooltip = "Approved Leave"
                 else:
                     circle_color = "green"
                     tooltip = "Office"
+            elif leave_on_date:
+                # Approved leave - show in green cell
+                circle_color = None
+                is_leave = True
+                tooltip = "Approved Leave"
+            elif is_holiday:
+                # Holiday - show in green
+                circle_color = "green"
+                tooltip = f"Holiday: {holiday_name}"
             elif not is_holiday and not is_sunday and date_str < today_str:
                 # Absent: Check if within employment period
                 is_active = True
@@ -274,6 +305,7 @@ def intern_dashboard():
                 "day": day, 
                 "is_sunday": is_sunday, 
                 "is_holiday": is_holiday,
+                "is_leave": is_leave,
                 "holiday_name": holiday_name,
                 "circle_color": circle_color, 
                 "tooltip": tooltip
@@ -293,6 +325,7 @@ def intern_dashboard():
                            calendar_data=calendar_data,
                            standard_hours_str=standard_hours_str,
                            today_holiday=today_holiday,
+                           leave_today=leave_today,
                            leaves=leaves,
                            chart_labels=chart_labels,
                            chart_data=chart_data)
@@ -306,6 +339,18 @@ def mark_login():
     work_type = request.form["work_type"]
     today_dt = now_ist()
     today = today_dt.strftime("%Y-%m-%d")
+
+    # Check if today is a confirmed leave
+    leave_today = leaves_col.find_one({
+        "user_id": user_id,
+        "start_date": {"$lte": today},
+        "end_date": {"$gte": today},
+        "status": "Approved"
+    })
+    
+    if leave_today:
+        flash("You have confirmed leave today! Cannot mark attendance.", "danger")
+        return redirect(url_for("intern_dashboard"))
 
     if holidays_col.find_one({"date": today}) or today_dt.weekday() == 6:
         flash("Cannot mark attendance on a holiday or Sunday!", "danger")
@@ -392,12 +437,15 @@ def admin_dashboard():
     # Get all interns
     interns = list(users_col.find({"role": "intern"}))
     
-    # Get Pending Leaves
-    pending_leaves = list(leaves_col.find({"status": "Pending"}))
-    for l in pending_leaves:
+    # Get All Leaves (History)
+    all_leaves = list(leaves_col.find({}).sort("_id", -1))
+    pending_count = 0
+    for l in all_leaves:
         u = users_col.find_one({"_id": l["user_id"]})
         if u:
             l["intern_name"] = u["full_name"]
+        if l.get("status") == "Pending":
+            pending_count += 1
 
     # Get attendance records for selected date
     attendance_records = list(attendance_col.find({"date": date}))
@@ -532,7 +580,8 @@ def admin_dashboard():
                            total_interns=total_interns_count,
                            present_count=present_count,
                            absent_count=absent_count,
-                           pending_leaves=pending_leaves)
+                           leaves=all_leaves,
+                           pending_count=pending_count)
 
 
 @app.route("/admin/intern-profile/<user_id>")
@@ -645,18 +694,10 @@ def delete_holiday():
     flash("Holiday deleted.", "success")
     return redirect(url_for("admin_dashboard"))
 
-@app.route("/admin/manage-leave", methods=["POST"])
-@login_required(role="admin")
-def manage_leave():
-    leave_id = request.form.get("leave_id")
-    action = request.form.get("action") # 'Approved' or 'Rejected'
-    
-    if action in ["Approved", "Rejected"]:
-        leaves_col.update_one({"_id": ObjectId(leave_id)}, {"$set": {"status": action}})
-        flash(f"Leave request {action}.", "success")
-    
-    return redirect(url_for("admin_dashboard"))
 
+# -----------------------------------------
+# DELETE INTERN
+# -----------------------------------------
 @app.route("/admin/delete-intern", methods=["POST"])
 @login_required(role="admin")
 def delete_intern():
@@ -804,6 +845,282 @@ def add_intern():
         return redirect(url_for("admin_dashboard"))
 
     return render_template("add_intern.html")
+
+# -----------------------------------------
+# ADD ADMIN
+# -----------------------------------------
+@app.route("/admin/add-admin", methods=["POST"])
+@login_required(role="admin")
+def add_admin():
+    full_name = request.form.get("full_name", "").strip()
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+
+    if not full_name or not username or not password:
+        flash("All fields are required!", "danger")
+        return redirect(url_for("admin_dashboard"))
+
+    if users_col.find_one({"username": username}):
+        flash("Username already exists!", "danger")
+        return redirect(url_for("admin_dashboard"))
+
+    users_col.insert_one({
+        "full_name": full_name,
+        "username": username,
+        "password": password,
+        "role": "admin"
+    })
+
+    flash(f"Admin '{username}' added successfully!", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
+# -----------------------------------------
+# CHANGE WORK TYPE
+# -----------------------------------------
+@app.route("/admin/change-work-type", methods=["POST"])
+@login_required(role="admin")
+def change_work_type():
+    user_id = request.form.get("user_id")
+    date = request.form.get("date")
+    work_type = request.form.get("work_type")
+
+    record = attendance_col.find_one({"user_id": ObjectId(user_id), "date": date})
+    if not record:
+        flash("Attendance record not found!", "danger")
+        return redirect(url_for("admin_dashboard", date=date))
+
+    attendance_col.update_one(
+        {"_id": record["_id"]},
+        {"$set": {"work_type": work_type}}
+    )
+
+    flash("Work type updated successfully!", "success")
+    return redirect(url_for("admin_dashboard", date=date))
+
+
+# -----------------------------------------
+# EDIT TIME (Forgot Logout)
+# -----------------------------------------
+@app.route("/admin/edit-time", methods=["POST"])
+@login_required(role="admin")
+def edit_time():
+    user_id = request.form.get("user_id")
+    date = request.form.get("date")
+    login_time = request.form.get("login_time")
+    logout_time = request.form.get("logout_time")
+
+    record = attendance_col.find_one({"user_id": ObjectId(user_id), "date": date})
+    if not record:
+        flash("Attendance record not found!", "danger")
+        return redirect(url_for("admin_dashboard", date=date))
+
+    update_data = {}
+    
+    if login_time:
+        update_data["login_time"] = login_time
+    
+    if logout_time:
+        update_data["logout_time"] = logout_time
+        
+        # Recalculate hours worked if both times are present
+        login_str = login_time or record.get("login_time")
+        if login_str:
+            try:
+                login_dt = datetime.strptime(login_str, "%H:%M:%S")
+                logout_dt = datetime.strptime(logout_time, "%H:%M:%S")
+                diff = logout_dt - login_dt
+                
+                # Handle case where logout is next day
+                if diff.total_seconds() < 0:
+                    diff = timedelta(hours=24) + diff
+                
+                hours = int(diff.total_seconds() // 3600)
+                minutes = int((diff.total_seconds() % 3600) // 60)
+                update_data["hours_worked"] = f"{hours}h {minutes}m"
+            except:
+                pass
+
+    if update_data:
+        attendance_col.update_one({"_id": record["_id"]}, {"$set": update_data})
+        flash("Attendance time updated successfully!", "success")
+
+    return redirect(url_for("admin_dashboard", date=date))
+
+
+# -----------------------------------------
+# COMPLETED INTERNSHIPS
+# -----------------------------------------
+@app.route("/admin/completed-internships")
+@login_required(role="admin")
+def completed_internships():
+    today = now_ist().strftime("%Y-%m-%d")
+    
+    # Find interns whose ending_date has passed
+    completed_interns = list(users_col.find({
+        "role": "intern",
+        "ending_date": {"$lt": today}
+    }).sort("ending_date", -1))
+    
+    # Add stats for each intern
+    for intern in completed_interns:
+        user_id = intern["_id"]
+        
+        # Calculate total hours worked
+        records = list(attendance_col.find({"user_id": user_id}))
+        total_minutes = 0
+        days_worked = 0
+        
+        for r in records:
+            if r.get("hours_worked") and r.get("hours_worked") != "-":
+                try:
+                    parts = r["hours_worked"].split(" ")
+                    h = int(parts[0].replace("h", ""))
+                    m = int(parts[1].replace("m", ""))
+                    total_minutes += (h * 60) + m
+                    days_worked += 1
+                except:
+                    pass
+        
+        intern["total_hours"] = f"{total_minutes // 60}h {total_minutes % 60}m"
+        intern["days_worked"] = days_worked
+        intern["joining_date"] = intern.get("joining_date", "N/A")
+        intern["ending_date"] = intern.get("ending_date", "N/A")
+    
+    # --- Summary Stats Calculation ---
+    total_completed = len(completed_interns)
+    total_days_all_interns = sum(intern.get('days_worked', 0) for intern in completed_interns)
+    avg_days_worked = (total_days_all_interns / total_completed) if total_completed > 0 else 0
+
+    total_minutes_all_interns = 0
+    for intern in completed_interns:
+        if 'total_hours' in intern and 'h' in intern['total_hours']:
+            try:
+                parts = intern["total_hours"].split(" ")
+                h = int(parts[0].replace("h", ""))
+                m = int(parts[1].replace("m", ""))
+                total_minutes_all_interns += (h * 60) + m
+            except (ValueError, IndexError):
+                pass # Or log the error
+    total_hours_all_str = f"{total_minutes_all_interns // 60}h {total_minutes_all_interns % 60}m"
+
+    return render_template("completed_internships.html",
+                           completed_interns=completed_interns,
+                           total_completed=total_completed,
+                           avg_days_worked=avg_days_worked,
+                           total_hours_all_str=total_hours_all_str)
+
+
+# -----------------------------------------
+# TODAY'S LIVE TIMERS
+# -----------------------------------------
+@app.route("/admin/today-timers")
+@login_required(role="admin")
+def today_timers():
+    today = now_ist().strftime("%Y-%m-%d")
+
+    # Get today's attendance records (those who logged in)
+    today_records = list(attendance_col.find({"date": today, "status": "Present"}))
+
+    # Build user data with timers
+    todays_users = []
+    for record in today_records:
+        user = users_col.find_one({"_id": record["user_id"]})
+        if user:
+            daily_hours = int(user.get("daily_hours", 8))
+            login_time = record.get("login_time", "")
+            logout_time = record.get("logout_time")
+            hours_worked = record.get("hours_worked")
+
+            todays_users.append({
+                "user_id": str(user["_id"]),
+                "full_name": user["full_name"],
+                "username": user["username"],
+                "login_time": login_time,
+                "logout_time": logout_time,
+                "hours_worked": hours_worked,
+                "work_type": record.get("work_type", "-"),
+                "daily_hours": daily_hours
+            })
+
+    # Sort by logged out status first (active on top), then by login time
+    todays_users.sort(key=lambda x: (x['logout_time'] is not None, x['login_time']))
+
+    return render_template("today_timers.html", todays_users=todays_users, today=today)
+
+
+# -----------------------------------------
+# CONFIRM/REJECT LEAVE WITH COLOR DISPLAY
+# -----------------------------------------
+@app.route("/admin/manage-leave", methods=["POST"])
+@login_required(role="admin")
+def manage_leave():
+    leave_id = request.form.get("leave_id")
+    action = request.form.get("action")  # 'Approved' or 'Rejected'
+    
+    if action in ["Approved", "Rejected"]:
+        leave = leaves_col.find_one({"_id": ObjectId(leave_id)})
+        
+        if not leave:
+            flash("Leave request not found!", "danger")
+            return redirect(url_for("admin_dashboard"))
+        
+        leaves_col.update_one({"_id": ObjectId(leave_id)}, {"$set": {"status": action}})
+        
+        if action == "Approved":
+            # Add to attendance records with Holiday status for leave display
+            user_id = leave["user_id"]
+            start_dt = datetime.strptime(leave["start_date"], "%Y-%m-%d")
+            end_dt = datetime.strptime(leave["end_date"], "%Y-%m-%d")
+            
+            current_dt = start_dt
+            while current_dt <= end_dt:
+                date_str = current_dt.strftime("%Y-%m-%d")
+                # Check if record already exists
+                existing = attendance_col.find_one({"user_id": user_id, "date": date_str})
+                if not existing:
+                    attendance_col.insert_one({
+                        "user_id": user_id,
+                        "date": date_str,
+                        "work_type": "Leave",
+                        "login_time": "-",
+                        "logout_time": "-",
+                        "status": "Leave - Approved",
+                        "hours_worked": "-",
+                        "leave_id": ObjectId(leave_id)
+                    })
+                current_dt += timedelta(days=1)
+        
+        elif action == "Rejected":
+            # If rejecting, remove any attendance records previously created for this leave
+            attendance_col.delete_many({"leave_id": ObjectId(leave_id)})
+        
+        flash(f"Leave request {action}.", "success")
+    
+    return redirect(url_for("admin_dashboard"))
+
+
+# -----------------------------------------
+# DELETE LEAVE REQUEST
+# -----------------------------------------
+@app.route("/admin/delete-leave", methods=["POST"])
+@login_required(role="admin")
+def delete_leave():
+    leave_id = request.form.get("leave_id")
+    if leave_id:
+        # First, delete any attendance records that were created for this leave
+        attendance_col.delete_many({"leave_id": ObjectId(leave_id)})
+        
+        # Then, delete the leave request itself
+        leaves_col.delete_one({"_id": ObjectId(leave_id)})
+        
+        flash("Leave request has been permanently deleted.", "success")
+    else:
+        flash("Could not delete leave request: ID missing.", "warning")
+        
+    return redirect(url_for("admin_dashboard"))
+
+
 # -----------------------------------------
 # START SERVER
 # -----------------------------------------

@@ -10,6 +10,8 @@
   .calendar-day { font-weight: 700; font-size: 1.1rem; }
   .text-sunday { color: #dc3545 !important; } /* Red number for Sunday */
   .text-holiday { color: #d63384 !important; } /* Pink/Red number for Holiday */
+  .text-leave { color: #198754 !important; } /* Green number for Leave */
+  .bg-leave { background-color: #d1e7dd !important; } /* Light Green background for Leave */
   
   /* Status Dots */
   .status-dot {
@@ -18,6 +20,58 @@
   .dot-red { background-color: #dc3545; box-shadow: 0 0 5px rgba(220, 53, 69, 0.5); }
   .dot-yellow { background-color: #ffc107; box-shadow: 0 0 5px rgba(255, 193, 7, 0.5); }
   .dot-green { background-color: #28a745; box-shadow: 0 0 5px rgba(40, 167, 69, 0.5); }
+
+  /* Circular Timer Styles */
+  .progress-circular {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: conic-gradient(from 0deg, #4facfe 0deg, #00f2fe 360deg);
+    padding: 3px;
+    margin: 0 auto;
+  }
+  
+  .progress-circular::before {
+    content: '';
+    position: absolute;
+    width: calc(100% - 6px);
+    height: calc(100% - 6px);
+    border-radius: 50%;
+    background: white;
+  }
+  
+  .progress-percent {
+    position: relative;
+    z-index: 10;
+    font-weight: bold;
+    font-size: 1.5rem;
+  }
+
+  /* Timer Card Styles from Admin View */
+  .timer-card {
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  }
+  .timer-display {
+    font-size: 2.5rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+  }
+  @keyframes pulse-timer {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .pulse-active {
+    animation: pulse-timer 1.5s infinite;
+  }
+  .card-office { background-color: #e8f5e9; }
+  .card-wfh { background-color: #fffde7; }
 
   @media (max-width: 768px) {
     .calendar-table td { height: 50px; padding: 4px; }
@@ -64,7 +118,12 @@
     <!-- TODAY'S ACTION (Standalone Card) -->
     <div class="card p-4 shadow-sm h-100">
       <h5 class="mb-4 text-primary"><i class="fa-solid fa-clipboard-check"></i> Today's Action</h5>
-      {% if today_holiday %}
+      {% if leave_today %}
+        <div class="alert alert-danger shadow-sm border-0" style="background-color: #ffebee; color: #c62828;">
+          <h5 class="alert-heading"><i class="fa-solid fa-umbrella-beach"></i> On Leave Today</h5>
+          <p class="mb-0">You have an approved leave: <strong>{{ leave_today.reason }}</strong>.</p>
+        </div>
+      {% elif today_holiday %}
         <div class="alert alert-danger shadow-sm border-0" style="background-color: #FCE4EC; color: #C2185B;">
           <h5 class="alert-heading"><i class="fa-solid fa-mug-hot"></i> Holiday Today!</h5>
           <p class="mb-0">Today is <strong>{{ today_holiday.name }}</strong>. Attendance marking is disabled.</p>
@@ -98,6 +157,55 @@
       {% endif %}
     </div>
   </div>
+
+  <!-- 2.5 TODAY'S TIMER (Live Clock) -->
+  {% if record and not record.logout_time %}
+  <div class="col-md-8 mb-4">
+    <div class="card timer-card p-4 shadow-sm border-0 {% if record.work_type == 'Office' %}card-office{% elif record.work_type == 'Work From Home' %}card-wfh{% endif %}">
+      <h5 class="mb-4 text-primary"><i class="fa-solid fa-stopwatch"></i> Live Work Timer</h5>
+      
+      <div class="row align-items-center">
+        <!-- Elapsed Time -->
+        <div class="col-md-6 mb-3 mb-md-0 text-center">
+          <div class="p-3">
+            <h6 class="text-muted mb-2"><i class="fa-solid fa-hourglass-start"></i> Elapsed Time</h6>
+            <div class="timer-display text-primary pulse-active mb-2" id="elapsedTime">00:00:00</div>
+            <small class="text-muted">Since <span id="loginTimeDisplay">{{ record.login_time }}</span></small>
+          </div>
+        </div>
+
+        <!-- Circular Progress -->
+        <div class="col-md-6">
+          <div class="d-flex flex-column align-items-center justify-content-center">
+            <div class="progress-circular" id="progressCircle">
+              <span class="progress-percent text-dark" id="progressPercent">0%</span>
+            </div>
+            <small class="text-muted mt-2">Daily Target ({{ user.daily_hours|default(8) }}h)</small>
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- Predicted Logout (Styled like Admin View) -->
+      <div class="mb-3 p-3 rounded" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="opacity-75"><i class="fa-solid fa-calendar-check"></i> Predicted Logout</small>
+            <h4 class="m-0 mt-1" id="predictedLogout">--:--:--</h4>
+          </div>
+          <div>
+            <i class="fa-solid fa-arrow-right-from-bracket fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert alert-info mb-0" role="alert">
+        <i class="fa-solid fa-clock"></i> <span id="remainingTime">Calculating...</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- 3. STATS COLUMN (Bottom Left) -->
   <div class="col-md-4 mb-4">
@@ -158,6 +266,52 @@
     
   <!-- 4. HISTORY & CALENDAR (Bottom Right) -->
   <div class="col-md-8 mb-4">
+    <!-- CALENDAR CARD -->
+    <div class="card p-4 mb-3 shadow-sm">
+      <h5 class="text-primary mb-3"><i class="fa-solid fa-calendar-days"></i> Attendance Calendar</h5>
+      
+      <!-- Color Legend -->
+      <div class="mb-3 p-2 bg-light rounded" style="font-size: 0.85rem;">
+        <div class="row g-2">
+          <div class="col-auto"><span class="status-dot dot-green"></span> <small>Office / Holiday</small></div>
+          <div class="col-auto"><span class="status-dot dot-yellow"></span> <small>Work From Home</small></div>
+          <div class="col-auto"><span class="status-dot dot-red"></span> <small>Absent</small></div>
+          <div class="col-auto"><span class="badge bg-leave text-leave border border-success">12</span> <small>Approved Leave</small></div>
+        </div>
+      </div>
+      
+      <div class="table-responsive">
+        <table class="table table-bordered calendar-table mb-0">
+          <thead class="bg-light">
+            <tr>
+              <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th class="text-danger">Sun</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for week in calendar_data %}
+            <tr>
+              {% for day in week %}
+                {% if day is none %}
+                  <td class="bg-light opacity-25"></td>
+                {% else %}
+                  <td class="{% if day.is_leave %}bg-leave{% endif %}">
+                    <span class="calendar-day {% if day.is_holiday %}text-holiday{% elif day.is_sunday %}text-sunday{% elif day.is_leave %}text-leave{% endif %}">{{ day.day }}</span>
+                    
+                    {% if day.is_holiday %}
+                      <div style="font-size: 0.65rem; line-height: 1.1; color: #d63384;" class="fw-bold mt-1">{{ day.holiday_name }}</div>
+                    {% elif day.circle_color %}
+                      <span class="status-dot dot-{{ day.circle_color }}" title="{{ day.tooltip }}" data-bs-toggle="tooltip"></span>
+                    {% endif %}
+                  </td>
+                {% endif %}
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="card p-4">
       <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -272,41 +426,6 @@
       </div>
     </div>
 
-    <!-- CALENDAR CARD -->
-    <div class="card p-4 mt-3 shadow-sm">
-      <h5 class="text-primary mb-3"><i class="fa-solid fa-calendar-days"></i> Attendance Calendar</h5>
-      <div class="table-responsive">
-        <table class="table table-bordered calendar-table mb-0">
-          <thead class="bg-light">
-            <tr>
-              <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th class="text-danger">Sun</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for week in calendar_data %}
-            <tr>
-              {% for day in week %}
-                {% if day is none %}
-                  <td class="bg-light opacity-25"></td>
-                {% else %}
-                  <td>
-                    <span class="calendar-day {% if day.is_holiday %}text-holiday{% elif day.is_sunday %}text-sunday{% endif %}">{{ day.day }}</span>
-                    
-                    {% if day.is_holiday %}
-                      <div style="font-size: 0.65rem; line-height: 1.1; color: #d63384;" class="fw-bold mt-1">{{ day.holiday_name }}</div>
-                    {% elif day.circle_color %}
-                      <span class="status-dot dot-{{ day.circle_color }}" title="{{ day.tooltip }}" data-bs-toggle="tooltip"></span>
-                    {% endif %}
-                  </td>
-                {% endif %}
-              {% endfor %}
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
   </div>
 </div>
 
@@ -355,6 +474,112 @@
           }
       }
   });
+
+  // ===== LIVE TIMER FUNCTIONALITY =====
+  function updateLiveTimer() {
+    const loginTimeStr = document.getElementById('loginTimeDisplay')?.textContent;
+    const dailyHours = parseInt('{{ user.daily_hours|default(8) }}');
+    
+    if (!loginTimeStr) return;
+    
+    // Parse login time (HH:MM:SS)
+    const [loginH, loginM, loginS] = loginTimeStr.split(':').map(Number);
+    const loginDate = new Date();
+    loginDate.setHours(loginH, loginM, loginS, 0);
+    
+    // Current time
+    const now = new Date();
+    
+    // Calculate elapsed time
+    const elapsedMs = now - loginDate;
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    const elapsedHours = Math.floor(elapsedSeconds / 3600);
+    const elapsedMinutes = Math.floor((elapsedSeconds % 3600) / 60);
+    const elapsedSecs = elapsedSeconds % 60;
+    
+    // Format elapsed time as HH:MM:SS
+    const elapsedTimeStr = 
+      String(elapsedHours).padStart(2, '0') + ':' +
+      String(elapsedMinutes).padStart(2, '0') + ':' +
+      String(elapsedSecs).padStart(2, '0');
+    
+    // Update elapsed time display
+    const elapsedTimeEl = document.getElementById('elapsedTime');
+    if (elapsedTimeEl) {
+      elapsedTimeEl.textContent = elapsedTimeStr;
+    }
+    
+    // Calculate predicted logout time (login + daily_hours)
+    const logoutDate = new Date(loginDate);
+    logoutDate.setHours(loginDate.getHours() + dailyHours, loginDate.getMinutes(), loginDate.getSeconds(), 0);
+    
+    const logoutH = String(logoutDate.getHours()).padStart(2, '0');
+    const logoutM = String(logoutDate.getMinutes()).padStart(2, '0');
+    const logoutS = String(logoutDate.getSeconds()).padStart(2, '0');
+    const predictedLogoutStr = logoutH + ':' + logoutM + ':' + logoutS;
+    
+    // Update predicted logout display
+    const predictedLogoutEl = document.getElementById('predictedLogout');
+    if (predictedLogoutEl) {
+      predictedLogoutEl.textContent = predictedLogoutStr;
+    }
+    
+    // Calculate remaining time until predicted logout
+    const remainingMs = logoutDate - now;
+    let remainingStr = '';
+    const remainingTimeEl = document.getElementById('remainingTime');
+    
+    if (remainingMs > 0) {
+      const remainingSeconds = Math.floor(remainingMs / 1000);
+      const remainingH = Math.floor(remainingSeconds / 3600);
+      const remainingMin = Math.floor((remainingSeconds % 3600) / 60);
+      const remainingSec = remainingSeconds % 60;
+      remainingStr = 
+        String(remainingH).padStart(2, '0') + ':' +
+        String(remainingMin).padStart(2, '0') + ':' +
+        String(remainingSec).padStart(2, '0') + ' remaining';
+      
+      if (remainingTimeEl) remainingTimeEl.classList.remove('text-danger');
+    } else {
+      // Overtime Logic
+      const overtimeMs = Math.abs(remainingMs);
+      const otSeconds = Math.floor(overtimeMs / 1000);
+      const otH = Math.floor(otSeconds / 3600);
+      const otM = Math.floor((otSeconds % 3600) / 60);
+      const otS = otSeconds % 60;
+      
+      remainingStr = '+' + 
+        String(otH).padStart(2, '0') + ':' +
+        String(otM).padStart(2, '0') + ':' +
+        String(otS).padStart(2, '0') + ' (Overtime)';
+        
+      if (remainingTimeEl) remainingTimeEl.classList.add('text-danger');
+    }
+    
+    // Update remaining time display
+    if (remainingTimeEl) {
+      remainingTimeEl.textContent = remainingStr;
+    }
+    
+    // Update progress bar (as percentage of daily target)
+    const progressPercent = Math.min((elapsedSeconds / (dailyHours * 3600)) * 100, 100);    
+    const progressPercentEl = document.getElementById('progressPercent');
+    const progressCircle = document.getElementById('progressCircle');
+    
+    if (progressCircle) {
+      const angle = (progressPercent / 100) * 360;
+      progressCircle.style.background = `conic-gradient(from 0deg, #667eea 0deg, #667eea ${angle}deg, #e0e0e0 ${angle}deg)`;
+      if (progressPercentEl) {
+        progressPercentEl.textContent = Math.round(progressPercent) + '%';
+      }
+    }
+  }
+  
+  // Update timer every second
+  if (document.getElementById('elapsedTime')) {
+    updateLiveTimer();
+    setInterval(updateLiveTimer, 1000);
+  }
 </script>
 
 {% endblock %}

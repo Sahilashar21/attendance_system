@@ -70,6 +70,10 @@
     <i class="fa-solid fa-plus"></i> Add New Intern
   </button>
 
+  <button class="btn btn-info text-white" type="button" data-bs-toggle="collapse" data-bs-target="#addAdminDropdown" aria-expanded="false" aria-controls="addAdminDropdown">
+    <i class="fa-solid fa-user-shield"></i> Add Admin
+  </button>
+
   <!-- Dropdown Toggle -->
   <button class="btn btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#internDropdown" aria-expanded="false" aria-controls="internDropdown">
     <i class="fa-solid fa-users-gear"></i> Manage Interns
@@ -80,8 +84,16 @@
   </button>
 
   <button class="btn btn-outline-warning text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#leaveDropdown" aria-expanded="false" aria-controls="leaveDropdown">
-    <i class="fa-solid fa-envelope-open-text"></i> Leave Requests {% if pending_leaves %}<span class="badge bg-danger rounded-pill">{{ pending_leaves|length }}</span>{% endif %}
+    <i class="fa-solid fa-envelope-open-text"></i> Leave Requests {% if pending_count > 0 %}<span class="badge bg-danger rounded-pill">{{ pending_count }}</span>{% endif %}
   </button>
+
+  <a href="{{ url_for('completed_internships') }}" class="btn btn-outline-success">
+    <i class="fa-solid fa-graduation-cap"></i> Completed Internships
+  </a>
+
+  <a href="{{ url_for('today_timers') }}" class="btn btn-outline-info">
+    <i class="fa-solid fa-stopwatch"></i> Today's Timers
+  </a>
 </div>
 
 <div id="dashboardAccordion">
@@ -94,15 +106,29 @@
         <div class="row">
             <div class="col-md-6 mb-3"><label class="form-label">Full Name</label><input name="full_name" class="form-control" required></div>
             <div class="col-md-6 mb-3"><label class="form-label">Username</label><input name="username" class="form-control" required></div>
-            <div class="col-md-6 mb-3"><label class="form-label">Password</label><input name="password" type="password" class="form-control" required></div>
-            <div class="col-md-6 mb-3"><label class="form-label">Daily Work Hours</label><input name="daily_hours" type="number" class="form-control" value="8" required></div>
+            <div class="col-md-4 mb-3"><label class="form-label">Password</label><input name="password" type="password" class="form-control" required></div>
+            <div class="col-md-4 mb-3"><label class="form-label">Daily Work Hours</label><input name="daily_hours" type="number" class="form-control" value="8" required></div>
+            <div class="col-md-4 mb-3"><label class="form-label">Joining Date</label><input type="date" name="joining_date" class="form-control"></div>
         </div>
         <button class="btn btn-success"><i class="fa-solid fa-check"></i> Add Intern</button>
       </form>
   </div>
 </div>
 
-<!-- COLLAPSIBLE INTERN LIST -->
+<!-- COLLAPSIBLE ADD ADMIN -->
+<div class="collapse" id="addAdminDropdown" data-bs-parent="#dashboardAccordion">
+  <div class="card card-body mb-4" style="background: linear-gradient(135deg, #E8F4F8 0%, #F0F8FB 100%);">
+      <h5><i class="fa-solid fa-user-shield"></i> Add New Admin</h5>
+      <form method="POST" action="{{ url_for('add_admin') }}" class="mt-3">
+        <div class="row">
+            <div class="col-md-6 mb-3"><label class="form-label">Full Name</label><input name="full_name" class="form-control" required></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Username</label><input name="username" class="form-control" required></div>
+            <div class="col-md-6 mb-3"><label class="form-label">Password</label><input name="password" type="password" class="form-control" required></div>
+        </div>
+        <button class="btn btn-info text-white"><i class="fa-solid fa-check"></i> Add Admin</button>
+      </form>
+  </div>
+</div>
 <div class="collapse" id="internDropdown" data-bs-parent="#dashboardAccordion">
   <div class="card card-body mb-4">
       <h5><i class="fa-solid fa-list"></i> Manage Interns</h5>
@@ -163,7 +189,7 @@
 
                   <div class="mb-2">
                     <label class="form-label">Password</label>
-                    <input type="text" class="form-control" name="password" value="{{ i.password }}" required>
+                    <input type="password" class="form-control" name="password" placeholder="Leave blank to keep unchanged">
                   </div>
 
                   <div class="mb-2">
@@ -240,29 +266,51 @@
 <!-- COLLAPSIBLE LEAVE REQUESTS -->
 <div class="collapse" id="leaveDropdown" data-bs-parent="#dashboardAccordion">
     <div class="card card-body mb-4 border-warning border-opacity-25" style="background-color: #fffbf0;">
-        <h5><i class="fa-solid fa-envelope-open-text"></i> Pending Leave Requests</h5>
+        <h5><i class="fa-solid fa-envelope-open-text"></i> Leave Requests History</h5>
         
         <div class="table-responsive mt-3">
             <table class="table table-sm table-bordered bg-white">
                 <thead class="table-light">
-                    <tr><th>Intern</th><th>Dates</th><th>Reason</th><th>Action</th></tr>
+                    <tr><th>Intern</th><th>Dates</th><th>Reason</th><th>Status</th><th>Action</th></tr>
                 </thead>
                 <tbody>
-                    {% for l in pending_leaves %}
+                    {% for l in leaves %}
                     <tr>
                         <td class="fw-bold">{{ l.intern_name }}</td>
                         <td>{{ l.start_date }} <i class="fa-solid fa-arrow-right small text-muted"></i> {{ l.end_date }}</td>
                         <td>{{ l.reason }}</td>
                         <td>
-                            <form method="POST" action="{{ url_for('manage_leave') }}" class="d-flex gap-1">
-                                <input type="hidden" name="leave_id" value="{{ l._id }}">
-                                <button name="action" value="Approved" class="btn btn-success btn-sm py-0 px-2"><i class="fa-solid fa-check"></i></button>
-                                <button name="action" value="Rejected" class="btn btn-danger btn-sm py-0 px-2"><i class="fa-solid fa-xmark"></i></button>
-                            </form>
+                            {% if l.status == 'Approved' %}
+                                <span class="badge bg-success">Approved</span>
+                            {% elif l.status == 'Rejected' %}
+                                <span class="badge bg-danger">Rejected</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <form method="POST" action="{{ url_for('manage_leave') }}" class="d-inline-flex gap-1">
+                                    <input type="hidden" name="leave_id" value="{{ l._id }}">
+                                    {% if l.status == 'Pending' %}
+                                        <button name="action" value="Approved" class="btn btn-success btn-sm py-0 px-2" title="Approve"><i class="fa-solid fa-check"></i></button>
+                                        <button name="action" value="Rejected" class="btn btn-danger btn-sm py-0 px-2" title="Reject"><i class="fa-solid fa-xmark"></i></button>
+                                    {% elif l.status == 'Approved' %}
+                                        <button name="action" value="Rejected" class="btn btn-outline-danger btn-sm py-0 px-2" title="Cancel Leave"><i class="fa-solid fa-ban"></i> Cancel</button>
+                                    {% elif l.status == 'Rejected' %}
+                                        <button name="action" value="Approved" class="btn btn-outline-success btn-sm py-0 px-2" title="Re-Approve"><i class="fa-solid fa-rotate-left"></i> Approve</button>
+                                    {% endif %}
+                                </form>
+                                <!-- Delete Button -->
+                                <form method="POST" action="{{ url_for('delete_leave') }}" onsubmit="return confirm('Are you sure you want to permanently delete this leave request? This cannot be undone.');">
+                                    <input type="hidden" name="leave_id" value="{{ l._id }}">
+                                    <button type="submit" class="btn btn-dark btn-sm py-0 px-2" title="Delete Permanently"><i class="fa-solid fa-trash"></i></button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="4" class="text-center text-muted">No pending leave requests.</td></tr>
+                    <tr><td colspan="5" class="text-center text-muted">No leave requests found.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -341,7 +389,7 @@
     </div>
 
     {% if records %}
-    <div class="table-responsive table-container shadow-sm animate__animated animate__fadeInUp">
+    <div class="table-responsive table-container attendance-table-container shadow-sm animate__animated animate__fadeInUp">
     <table class="table table-hover mb-0">
       <thead>
         <tr>
@@ -351,6 +399,7 @@
           <th>Logout</th>
           <th>Hours</th>
           <th>Status</th>
+          <th>Actions</th>
         </tr>
       </thead>
 
@@ -382,7 +431,53 @@
             <span class="badge bg-danger">Absent</span>
             {% endif %}
           </td>
+
+          <td>
+            {% if r.status == "Present" %}
+            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#edit{{ r.user_id }}_{{ date|replace('-', '') }}" aria-expanded="false">
+              <i class="fa-solid fa-pen"></i> Edit
+            </button>
+            {% endif %}
+          </td>
         </tr>
+
+        <!-- COLLAPSIBLE EDIT FORM FOR ATTENDANCE -->
+        {% if r.status == "Present" %}
+        <tr class="collapse editFormRow" id="edit{{ r.user_id }}_{{ date|replace('-', '') }}" data-bs-parent=".attendance-table-container">
+          <td colspan="7">
+            <div class="card card-body bg-light">
+              <h6 class="mb-3">Edit Attendance for {{ r.name }}</h6>
+              <form method="POST" action="{{ url_for('edit_time') }}">
+                <input type="hidden" name="user_id" value="{{ r.user_id }}">
+                <input type="hidden" name="date" value="{{ date }}">
+                
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Work Type</label>
+                    <select name="temp_work_type" class="form-select form-select-sm" onchange="changeWorkType('{{ r.user_id }}', '{{ date }}', this.value)">
+                      <option value="">Change Work Type...</option>
+                      <option value="Office" {% if r.work_type == "Office" %}selected{% endif %}>Office</option>
+                      <option value="Work From Home" {% if r.work_type == "Work From Home" %}selected{% endif %}>Work From Home</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Login Time</label>
+                    <input type="time" name="login_time" class="form-control form-control-sm" value="{{ r.login_time }}">
+                  </div>
+
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Logout Time</label>
+                    <input type="time" name="logout_time" class="form-control form-control-sm" value="{{ r.logout_time if r.logout_time != '-' else '' }}">
+                  </div>
+                </div>
+
+                <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-save"></i> Save Changes</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>
@@ -407,6 +502,39 @@ function toggleEarlyLeavers() {
         }
     });
 }
+
+function changeWorkType(userId, date, workType) {
+    if (!workType) return;
+    
+    const formData = new FormData();
+    formData.append('user_id', userId);
+    formData.append('date', date);
+    formData.append('work_type', workType);
+    
+    fetch('{{ url_for("change_work_type") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Close other edit forms when one is opened
+document.querySelectorAll('.editFormRow').forEach(row => {
+  row.addEventListener('show.bs.collapse', function() {
+    // Close all other edit forms
+    document.querySelectorAll('.editFormRow.show').forEach(otherRow => {
+      if (otherRow !== row) {
+        const bsCollapse = new bootstrap.Collapse(otherRow, { toggle: false });
+        bsCollapse.hide();
+      }
+    });
+  });
+});
 </script>
 
 {% endblock %}

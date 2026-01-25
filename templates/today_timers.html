@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .timer-card {
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  }
+  
+  .timer-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  }
+  
+  .timer-display {
+    font-size: 2.5rem;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+  }
+  
+  .progress-circular {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: conic-gradient(from 0deg, #4facfe 0deg, #00f2fe 360deg);
+    padding: 3px;
+  }
+  
+  .progress-circular::before {
+    content: '';
+    position: absolute;
+    width: calc(100% - 6px);
+    height: calc(100% - 6px);
+    border-radius: 50%;
+    background: white;
+  }
+  
+  .progress-percent {
+    position: relative;
+    z-index: 10;
+    font-weight: bold;
+    font-size: 1.3rem;
+  }
+  
+  @keyframes pulse-timer {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  
+  .pulse-active {
+    animation: pulse-timer 1.5s infinite;
+  }
+
+  /* New styles for card colors */
+  .card-office { background-color: #e8f5e9; }
+  .card-wfh { background-color: #fffde7; }
+
+  .card-logged-out {
+    background-color: #fafafa;
+    border: 1px solid #e0e0e0;
+  }
+  .logged-out-display {
+    font-size: 2.2rem;
+    font-weight: bold;
+  }
+</style>
+
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 animate__animated animate__fadeInDown">
+    <div>
+      <h3 class="text-primary m-0"><i class="fa-solid fa-stopwatch"></i> Today's Live Timers</h3>
+      <small class="text-muted">Date: {{ today }}</small>
+    </div>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+      <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    </a>
+  </div>
+
+  <!-- Filter Toggles -->
+  <div class="btn-group mb-4 animate__animated animate__fadeIn" id="filter-buttons" role="group">
+      <button type="button" class="btn btn-primary active" onclick="filterTimers('all', this)">All</button>
+      <button type="button" class="btn btn-outline-success" onclick="filterTimers('Office', this)">Office</button>
+      <button type="button" class="btn btn-outline-warning" onclick="filterTimers('Work From Home', this)">Work From Home</button>
+  </div>
+
+  {% if todays_users %}
+  <div class="alert alert-info animate__animated animate__slideInDown" role="alert">
+    <i class="fa-solid fa-info-circle"></i> <strong>{{ todays_users|length }}</strong> user(s) have logged in today.
+  </div>
+
+  <div class="row" id="timerContainer">
+    {% for user in todays_users %}
+    <div class="col-xl-4 col-lg-6 mb-4 animate__animated animate__fadeInUp timer-item" data-work-type="{{ user.work_type }}">
+      <div class="card timer-card h-100 p-4 
+                  {% if not user.logout_time %}{% if user.work_type == 'Office' %}card-office{% elif user.work_type == 'Work From Home' %}card-wfh{% endif %}{% else %}card-logged-out{% endif %}">
+        
+        <!-- User Header -->
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <h5 class="mb-1 text-dark fw-bold">{{ user.full_name }}</h5>
+            <small class="text-muted"><i class="fa-solid fa-at"></i> {{ user.username }}</small>
+          </div>
+          <span class="badge {% if user.work_type == 'Office' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ user.work_type }}</span>
+        </div>
+
+        <hr class="my-3">
+
+        {% if not user.logout_time %}
+        <!-- TIMER DISPLAY (ACTIVE) -->
+        <div class="timer-active">
+          <div class="row mb-4">
+            <!-- Elapsed Time -->
+            <div class="col-md-6 text-center">
+              <small class="text-muted fw-bold d-block mb-2"><i class="fa-solid fa-hourglass-start"></i> Elapsed</small>
+              <div class="timer-display text-primary pulse-active" id="elapsed_{{ user.user_id }}">00:00:00</div>
+              <small class="text-muted">Since {{ user.login_time }}</small>
+            </div>
+
+            <!-- Progress Circle -->
+            <div class="col-md-6 d-flex flex-column align-items-center justify-content-center">
+              <div class="progress-circular" style="background: conic-gradient(from 0deg, #667eea 0deg, #667eea 0deg, #e0e0e0 0deg);" id="progressCircle_{{ user.user_id }}">
+                <span class="progress-percent" id="progressPercent_{{ user.user_id }}">0%</span>
+              </div>
+              <small class="text-muted mt-2" id="progressLabel_{{ user.user_id }}">0% Complete</small>
+            </div>
+          </div>
+
+          <hr class="my-3">
+
+          <!-- Predicted Logout -->
+          <div class="mb-3 p-3 rounded" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <small class="opacity-75"><i class="fa-solid fa-calendar-check"></i> Predicted Logout ({{ user.daily_hours }}h)</small>
+                <h4 class="m-0 mt-1" id="logout_{{ user.user_id }}">--:--:--</h4>
+              </div>
+              <div>
+                <i class="fa-solid fa-arrow-right-from-bracket fa-2x opacity-50"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Remaining Time -->
+          <div class="alert alert-info mb-0" role="alert">
+            <i class="fa-solid fa-clock"></i> <span id="remaining_{{ user.user_id }}">Calculating...</span>
+          </div>
+
+          <!-- Hidden data for JavaScript -->
+          <input type="hidden" class="user-login-time" value="{{ user.login_time }}">
+          <input type="hidden" class="user-daily-hours" value="{{ user.daily_hours }}">
+        </div>
+        {% else %}
+        <!-- LOGGED OUT DISPLAY -->
+        <div class="text-center">
+            <i class="fa-solid fa-circle-check fa-4x text-success mb-3"></i>
+            <h4 class="text-success">Logged Out</h4>
+            <div class="mt-3">
+                <small class="text-muted fw-bold d-block">Total Hours Worked</small>
+                <div class="logged-out-display text-dark">{{ user.hours_worked }}</div>
+            </div>
+            <div class="d-flex justify-content-around mt-3 small text-muted border-top pt-2">
+                <span><i class="fa-solid fa-right-to-bracket"></i> {{ user.login_time }}</span>
+                <span><i class="fa-solid fa-right-from-bracket"></i> {{ user.logout_time }}</span>
+            </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="alert alert-warning" role="alert">
+    <i class="fa-solid fa-exclamation-triangle"></i> <strong>No users logged in today.</strong>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  // Filter function for toggles
+  function filterTimers(workType, element) {
+      document.querySelectorAll('.timer-item').forEach(item => {
+          item.style.display = (workType === 'all' || item.dataset.workType === workType) ? '' : 'none';
+      });
+
+      // Manage active button style
+      document.querySelectorAll('#filter-buttons button').forEach(btn => btn.classList.remove('active'));
+      element.classList.add('active');
+  }
+
+  // Timer Update Function
+  function updateAllTimers() {
+    const cards = document.querySelectorAll('.timer-active');
+    
+    cards.forEach(card => {
+      const elapsedId = card.querySelector('[id^="elapsed_"]').id;
+      const userId = elapsedId.replace('elapsed_', '');
+      
+      const loginTimeStr = card.querySelector('.user-login-time').value;
+      const dailyHours = parseInt(card.querySelector('.user-daily-hours').value);
+      
+      // Parse login time (HH:MM:SS)
+      const [loginH, loginM, loginS] = loginTimeStr.split(':').map(Number);
+      const loginDate = new Date();
+      loginDate.setHours(loginH, loginM, loginS, 0);
+      
+      // Current time
+      const now = new Date();
+      
+      // Calculate elapsed time
+      const elapsedMs = now - loginDate;
+      const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+      const elapsedHours = Math.floor(elapsedSeconds / 3600);
+      const elapsedMinutes = Math.floor((elapsedSeconds % 3600) / 60);
+      const elapsedSecs = elapsedSeconds % 60;
+      
+      // Format elapsed time
+      const elapsedTimeStr = 
+        String(elapsedHours).padStart(2, '0') + ':' +
+        String(elapsedMinutes).padStart(2, '0') + ':' +
+        String(elapsedSecs).padStart(2, '0');
+      
+      // Update elapsed time display
+      const elapsedEl = document.getElementById(`elapsed_${userId}`);
+      if (elapsedEl) {
+        elapsedEl.textContent = elapsedTimeStr;
+      }
+      
+      // Calculate predicted logout time
+      const logoutDate = new Date(loginDate);
+      logoutDate.setHours(loginDate.getHours() + dailyHours, loginDate.getMinutes(), loginDate.getSeconds(), 0);
+      
+      const logoutH = String(logoutDate.getHours()).padStart(2, '0');
+      const logoutM = String(logoutDate.getMinutes()).padStart(2, '0');
+      const logoutS = String(logoutDate.getSeconds()).padStart(2, '0');
+      const predictedLogoutStr = logoutH + ':' + logoutM + ':' + logoutS;
+      
+      // Update predicted logout display
+      const logoutEl = document.getElementById(`logout_${userId}`);
+      if (logoutEl) {
+        logoutEl.textContent = predictedLogoutStr;
+      }
+      
+      // Calculate remaining time
+      const remainingMs = logoutDate - now;
+      let remainingStr = '';
+      const remainingEl = document.getElementById(`remaining_${userId}`);
+      
+      if (remainingMs > 0) {
+        const remainingSeconds = Math.floor(remainingMs / 1000);
+        const remainingH = Math.floor(remainingSeconds / 3600);
+        const remainingMin = Math.floor((remainingSeconds % 3600) / 60);
+        const remainingSec = remainingSeconds % 60;
+        remainingStr = 
+          String(remainingH).padStart(2, '0') + ':' +
+          String(remainingMin).padStart(2, '0') + ':' +
+          String(remainingSec).padStart(2, '0') + ' remaining';
+          
+        if (remainingEl) remainingEl.classList.remove('text-danger', 'fw-bold');
+      } else {
+        // Overtime Logic
+        const overtimeMs = Math.abs(remainingMs);
+        const otSeconds = Math.floor(overtimeMs / 1000);
+        const otH = Math.floor(otSeconds / 3600);
+        const otM = Math.floor((otSeconds % 3600) / 60);
+        const otS = otSeconds % 60;
+        
+        remainingStr = '+' + 
+          String(otH).padStart(2, '0') + ':' +
+          String(otM).padStart(2, '0') + ':' +
+          String(otS).padStart(2, '0') + ' (Overtime)';
+          
+        if (remainingEl) remainingEl.classList.add('text-danger', 'fw-bold');
+      }
+      
+      // Update remaining time display
+      if (remainingEl) {
+        remainingEl.textContent = remainingStr;
+      }
+      
+      // Update progress bar (circular)
+      const progressPercent = Math.min((elapsedSeconds / (dailyHours * 3600)) * 100, 100);
+      const progressCircle = document.getElementById(`progressCircle_${userId}`);
+      const progressPercentEl = document.getElementById(`progressPercent_${userId}`);
+      const progressLabel = document.getElementById(`progressLabel_${userId}`);
+      
+      if (progressCircle) {
+        const angle = (progressPercent / 100) * 360;
+        progressCircle.style.background = `conic-gradient(from 0deg, #667eea 0deg, #667eea ${angle}deg, #e0e0e0 ${angle}deg)`;
+        
+        if (progressPercentEl) {
+          progressPercentEl.textContent = Math.round(progressPercent) + '%';
+        }
+        
+        if (progressLabel) {
+          progressLabel.textContent = Math.round(progressPercent) + '% Complete';
+        }
+      }
+    });
+  }
+  
+  // Update timers every second
+  if (document.querySelector('.timer-active')) {
+    updateAllTimers();
+    setInterval(updateAllTimers, 1000);
+  }
+</script>
+
+{% endblock %}

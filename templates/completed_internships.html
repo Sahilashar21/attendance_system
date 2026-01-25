@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 animate__animated animate__fadeInDown">
+        <h3 class="text-primary m-0"><i class="fa-solid fa-graduation-cap"></i> Completed Internships</h3>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    {% if completed_interns %}
+    <div class="row mb-3 animate__animated animate__fadeInUp">
+        <div class="col-md-12">
+            <div class="alert alert-info" role="alert">
+                <i class="fa-solid fa-info-circle"></i> Total Completed Internships: <strong>{{ completed_interns|length }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-responsive shadow-sm animate__animated animate__fadeInUp">
+        <table class="table table-hover table-striped mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th><i class="fa-solid fa-user"></i> Name</th>
+                    <th><i class="fa-solid fa-at"></i> Username</th>
+                    <th><i class="fa-solid fa-calendar-check"></i> Joining Date</th>
+                    <th><i class="fa-solid fa-calendar-xmark"></i> Ending Date</th>
+                    <th><i class="fa-solid fa-hourglass-end"></i> Days Worked</th>
+                    <th><i class="fa-solid fa-clock"></i> Total Hours</th>
+                    <th><i class="fa-solid fa-cogs"></i> Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for intern in completed_interns %}
+                <tr>
+                    <td>
+                        <span class="fw-bold text-dark">{{ intern.full_name }}</span>
+                    </td>
+                    <td>
+                        <span class="text-muted">{{ intern.username }}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-info text-dark">{{ intern.joining_date }}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-success">{{ intern.ending_date }}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-primary">{{ intern.days_worked }} days</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-warning text-dark fw-bold">{{ intern.total_hours }}</span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin_intern_profile', user_id=intern._id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fa-solid fa-eye"></i> View Profile
+                        </a>
+                        <a href="{{ url_for('download_intern_report', user_id=intern._id) }}" class="btn btn-sm btn-outline-success">
+                            <i class="fa-solid fa-file-export"></i> Export
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mt-5 mb-4 animate__animated animate__fadeInUp">
+        <div class="col-md-4">
+            <div class="card p-3 text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="m-0 text-opacity-75">Total Completed</h6>
+                        <h2 class="mt-2 fw-bold">{{ total_completed }}</h2>
+                    </div>
+                    <div><i class="fa-solid fa-graduation-cap fa-3x opacity-50"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3 text-white" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="m-0 text-opacity-75">Avg Days Worked</h6>
+                        <h2 class="mt-2 fw-bold">{{ avg_days_worked|round(1)|int }}</h2>
+                    </div>
+                    <div><i class="fa-solid fa-calendar-days fa-3x opacity-50"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card p-3 text-white" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="m-0 text-opacity-75">Total Hours (All)</h6>
+                        <h2 class="mt-2 fw-bold small">{{ total_hours_all_str }}</h2>
+                    </div>
+                    <div><i class="fa-solid fa-hourglass-end fa-3x opacity-50"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-warning" role="alert">
+        <i class="fa-solid fa-exclamation-triangle"></i> <strong>No completed internships found.</strong> All interns are currently active.
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
