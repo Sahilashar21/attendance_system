@@ -29,6 +29,20 @@
   }
   .text-sunday { color: #dc3545; }
   .text-holiday { color: #d63384; font-weight: bold; }
+
+  @media (max-width: 576px) {
+      .admin-calendar td {
+          padding: 2px;
+      }
+      .admin-calendar a {
+          padding: 5px 0;
+          font-size: 0.85rem;
+      }
+      /* Ensure buttons stack nicely on mobile */
+      .d-flex.gap-2.flex-wrap > * {
+          flex: 1 1 auto;
+      }
+  }
 </style>
 
 <h3 class="mb-4 animate__animated animate__fadeInLeft text-primary"><i class="fa-solid fa-user-shield"></i> Admin Dashboard</h3>

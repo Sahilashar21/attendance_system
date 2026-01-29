@@ -463,12 +463,16 @@ def admin_dashboard():
     for intern in interns:
         intern_id = str(intern["_id"])
         joining_date = intern.get("joining_date")
+        ending_date = intern.get("ending_date")
         
         # Filter out interns who haven't joined yet based on the selected date
         if joining_date and date < joining_date:
             continue
 
-        ending_date = intern.get("ending_date")
+        # Filter out interns whose contract has ended relative to the selected date
+        if ending_date and date > ending_date:
+            continue
+
         daily_hours = int(intern.get("daily_hours", 8))
         is_early_leaver = False
 
@@ -500,9 +504,7 @@ def admin_dashboard():
             })
         else:
             status = "Absent"
-            if ending_date and date > ending_date:
-                status = "-"
-            elif date > today_str:
+            if date > today_str:
                 status = "-"
             elif holiday_record:
                 status = f"Holiday: {holiday_record['name']}"
@@ -917,29 +919,46 @@ def edit_time():
 
     update_data = {}
     
+    # Helper to ensure HH:MM:SS format
+    def format_time(t):
+        if not t: return None
+        t = t.strip()
+        # Handle HH:MM (5 chars) or H:MM (4 chars)
+        if len(t) <= 5 and ":" in t: return t + ":00"
+        return t
+
+    login_time = format_time(login_time)
+    logout_time = format_time(logout_time)
+    
     if login_time:
         update_data["login_time"] = login_time
     
     if logout_time:
         update_data["logout_time"] = logout_time
         
-        # Recalculate hours worked if both times are present
-        login_str = login_time or record.get("login_time")
-        if login_str:
-            try:
-                login_dt = datetime.strptime(login_str, "%H:%M:%S")
-                logout_dt = datetime.strptime(logout_time, "%H:%M:%S")
-                diff = logout_dt - login_dt
-                
-                # Handle case where logout is next day
-                if diff.total_seconds() < 0:
-                    diff = timedelta(hours=24) + diff
-                
-                hours = int(diff.total_seconds() // 3600)
-                minutes = int((diff.total_seconds() % 3600) // 60)
-                update_data["hours_worked"] = f"{hours}h {minutes}m"
-            except:
-                pass
+    # Calculate hours if we have both times (either new or existing)
+    final_login = login_time if login_time else record.get("login_time")
+    final_logout = logout_time if logout_time else record.get("logout_time")
+    
+    # Handle case where existing logout might be "-" or None
+    if final_logout == "-": final_logout = None
+
+    if final_login and final_logout:
+        try:
+            login_dt = datetime.strptime(final_login, "%H:%M:%S")
+            logout_dt = datetime.strptime(final_logout, "%H:%M:%S")
+            diff = logout_dt - login_dt
+            
+            # Handle case where logout is next day
+            if diff.total_seconds() < 0:
+                diff = timedelta(hours=24) + diff
+            
+            hours = int(diff.total_seconds() // 3600)
+            minutes = int((diff.total_seconds() % 3600) // 60)
+            update_data["hours_worked"] = f"{hours}h {minutes}m"
+        except Exception as e:
+            print(f"Error calculating hours: {e}")
+            pass
 
     if update_data:
         attendance_col.update_one({"_id": record["_id"]}, {"$set": update_data})
@@ -956,10 +975,11 @@ def edit_time():
 def completed_internships():
     today = now_ist().strftime("%Y-%m-%d")
     
-    # Find interns whose ending_date has passed
+    # Find interns whose ending_date has passed and have both joining and ending dates
     completed_interns = list(users_col.find({
         "role": "intern",
-        "ending_date": {"$lt": today}
+        "joining_date": {"$exists": True, "$ne": ""},
+        "ending_date": {"$exists": True, "$ne": "", "$lt": today}
     }).sort("ending_date", -1))
     
     # Add stats for each intern

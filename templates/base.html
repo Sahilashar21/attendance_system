@@ -38,6 +38,7 @@
         color: var(--dark-text);
         font-family: 'Poppins', sans-serif;
         min-height: 100vh;
+        overflow-x: hidden;
     }
 
     /* Navbar */
@@ -108,7 +109,7 @@
     /* Tables */
     .table-container {
         border-radius: 15px;
-        overflow: hidden;
+        overflow-x: auto;
         box-shadow: 0 5px 15px rgba(0,0,0,0.05);
     }
     .table thead {
@@ -117,6 +118,20 @@
     }
     .text-primary {
         color: var(--dark-orange) !important;
+    }
+
+    /* Mobile Responsiveness Improvements */
+    @media (max-width: 768px) {
+        .navbar-brand img {
+            width: 140px;
+            margin-left: 0 !important;
+        }
+        .container {
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+        h2 { font-size: 1.8rem; }
+        h3 { font-size: 1.5rem; }
     }
   </style>
 
@@ -129,7 +144,7 @@
 <nav class="navbar navbar-expand-lg navbar-light mb-4 sticky-top">
   <div class="container-fluid position-relative d-flex flex-column flex-lg-row align-items-center">
     <span class="navbar-brand me-0 mb-2 mb-lg-0">
-      <img src="{{ url_for('static', filename='logo.svg') }}" alt="Logo" width="200" class="d-inline-block align-middle" style="margin-left: 30px;">
+      <img src="{{ url_for('static', filename='logo.svg') }}" alt="Logo" width="200" class="d-inline-block align-middle ms-3 ms-lg-4" style="max-width: 100%; height: auto;">
     </span>
     <span class="navbar-brand d-lg-none mb-2">Attendance System</span>
 
